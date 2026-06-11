@@ -1,0 +1,44 @@
+import { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import bcrypt from 'bcryptjs';
+import getDB, { initDB } from './db';
+
+export const authOptions: NextAuthOptions = {
+  providers: [
+    CredentialsProvider({
+      name: 'credentials',
+      credentials: {
+        username: { label: 'Username', type: 'text' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.username || !credentials?.password) return null;
+        await initDB();
+        const db = getDB();
+        const result = await db.execute({
+          sql: 'SELECT * FROM users WHERE username = ?',
+          args: [credentials.username],
+        });
+        const user = result.rows[0] as any;
+        if (!user) return null;
+        const valid = await bcrypt.compare(credentials.password, user.password);
+        if (!valid) return null;
+        return { id: user.id, name: user.name, email: user.username, role: user.role };
+      },
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) token.role = (user as any).role;
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) (session.user as any).role = token.role;
+      (session as any).userId = token.sub;
+      return session;
+    },
+  },
+  pages: { signIn: '/login' },
+  session: { strategy: 'jwt' },
+  secret: process.env.NEXTAUTH_SECRET || 'inventory-secret-key-2024',
+};

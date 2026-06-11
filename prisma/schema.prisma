@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String
+  role      String   // "admin", "agent", "customer"
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  itemCode    String   // קוד פריט (עמודה U)
+  itemName    String   // שם פריט (עמודה T)
+  modelCode   String   // קוד דגם (עמודה P)
+  modelName   String   // שם דגם (עמודה O)
+  quality     String   // איכות (עמודה I)
+  bloomPct    String   // % פריחה (עמודה H)
+  quantity    Float    // כמות זמינה
+  packageSize Int      @default(1)  // גודל אריזה
+  updatedAt   DateTime @default(now())
+
+  @@unique([itemCode, modelCode, quality, bloomPct])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  customerName    String?
+  cartNumber      String?
+  orderNumber     String?
+  lineNumber      String?
+  prodOrderNumber String?
+  prodLineNumber  String?
+  status          String      @default("pending")
+  createdAt       DateTime    @default(now())
+  items           OrderItem[]
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id])
+  itemCode    String
+  itemName    String
+  modelCode   String
+  modelName   String
+  quality     String
+  bloomPct    String
+  packages    Int
+  units       Int
+  packageSize Int
+}
