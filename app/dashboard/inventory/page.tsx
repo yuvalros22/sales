@@ -4,14 +4,14 @@ import { useEffect, useState, useMemo } from 'react';
 
 interface InventoryItem {
   id: string;
-  item_code: string;
-  item_name: string;
-  model_code: string;
-  model_name: string;
+  itemCode: string;
+  itemName: string;
+  modelCode: string;
+  modelName: string;
   quality: string;
-  bloom_pct: string;
+  bloomPct: string;
   quantity: number;
-  package_size: number;
+  packageSize: number;
 }
 
 export default function InventoryPage() {
@@ -35,10 +35,10 @@ export default function InventoryPage() {
   const grouped = useMemo(() => {
     const map: Record<string, { itemName: string; models: Record<string, InventoryItem[]> }> = {};
     for (const item of inventory) {
-      if (!map[item.item_code]) map[item.item_code] = { itemName: item.item_name, models: {} };
-      if (!map[item.item_code].models[item.model_code])
-        map[item.item_code].models[item.model_code] = [];
-      map[item.item_code].models[item.model_code].push(item);
+      if (!map[item.itemCode]) map[item.itemCode] = { itemName: item.itemName, models: {} };
+      if (!map[item.itemCode].models[item.modelCode])
+        map[item.itemCode].models[item.modelCode] = [];
+      map[item.itemCode].models[item.modelCode].push(item);
     }
     return map;
   }, [inventory]);
@@ -48,7 +48,7 @@ export default function InventoryPage() {
       !search ||
       data.itemName.includes(search) ||
       code.includes(search) ||
-      Object.values(data.models).flat().some(i => i.model_name.includes(search))
+      Object.values(data.models).flat().some(i => i.modelName.includes(search))
     );
   }, [grouped, search]);
 
@@ -59,10 +59,10 @@ export default function InventoryPage() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        itemCode: editPackage.item.item_code,
-        modelCode: editPackage.item.model_code,
+        itemCode: editPackage.item.itemCode,
+        modelCode: editPackage.item.modelCode,
         quality: editPackage.item.quality,
-        bloomPct: editPackage.item.bloom_pct,
+        bloomPct: editPackage.item.bloomPct,
         packageSize: editPackage.size
       })
     });
@@ -142,7 +142,7 @@ export default function InventoryPage() {
                   {Object.entries(data.models).map(([modelCode, variants]) => (
                     <div key={modelCode} style={{ borderBottom: '1px solid rgba(30,45,69,0.5)', padding: '12px 18px' }}>
                       <div style={{ fontWeight: 700, fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                        🌿 {variants[0].model_name} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({modelCode})</span>
+                        🌿 {variants[0].modelName} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({modelCode})</span>
                       </div>
                       <div style={{ overflowX: 'auto' }}>
                         <table className="data-table">
@@ -161,9 +161,9 @@ export default function InventoryPage() {
                                 <td>
                                   <span className="badge badge-purple">{v.quality}</span>
                                 </td>
-                                <td style={{ color: 'var(--text-secondary)' }}>{v.bloom_pct}%</td>
+                                <td style={{ color: 'var(--text-secondary)' }}>{v.bloomPct}%</td>
                                 <td>
-                                  <span className="badge badge-blue">{v.package_size} יח' לאריזה</span>
+                                  <span className="badge badge-blue">{v.packageSize} יח' לאריזה</span>
                                 </td>
                                 {role !== 'customer' ? (
                                   <td>
@@ -172,14 +172,14 @@ export default function InventoryPage() {
                                     </span>
                                     {v.quantity > 0 && (
                                       <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginRight: '6px' }}>
-                                        ({Math.floor(v.quantity / v.package_size)} אריזות)
+                                        ({Math.floor(v.quantity / v.packageSize)} אריזות)
                                       </span>
                                     )}
                                   </td>
                                 ) : (
                                   <td>
-                                    <span className={`badge ${v.quantity >= v.package_size ? 'badge-green' : 'badge-red'}`}>
-                                      {v.quantity >= v.package_size ? '✓ זמין להזמנה' : '✗ לא זמין'}
+                                    <span className={`badge ${v.quantity >= v.packageSize ? 'badge-green' : 'badge-red'}`}>
+                                      {v.quantity >= v.packageSize ? '✓ זמין להזמנה' : '✗ לא זמין'}
                                     </span>
                                   </td>
                                 )}
@@ -188,7 +188,7 @@ export default function InventoryPage() {
                                     <button
                                       className="btn-secondary"
                                       style={{ fontSize: '11px', padding: '4px 10px' }}
-                                      onClick={() => setEditPackage({ item: v, size: v.package_size })}
+                                      onClick={() => setEditPackage({ item: v, size: v.packageSize })}
                                     >
                                       עדכן אריזה
                                     </button>
@@ -214,8 +214,8 @@ export default function InventoryPage() {
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div style={{ fontWeight: 800, fontSize: '16px', marginBottom: '16px' }}>עדכון גודל אריזה</div>
             <div style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '13px' }}>
-              <strong>{editPackage.item.item_name}</strong> — {editPackage.item.model_name}<br />
-              איכות: {editPackage.item.quality} | פריחה: {editPackage.item.bloom_pct}%
+              <strong>{editPackage.item.itemName}</strong> — {editPackage.item.modelName}<br />
+              איכות: {editPackage.item.quality} | פריחה: {editPackage.item.bloomPct}%
             </div>
             <div className="form-group" style={{ marginBottom: '20px' }}>
               <label className="form-label">יחידות לאריזה</label>

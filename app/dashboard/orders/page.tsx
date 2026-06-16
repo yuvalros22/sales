@@ -12,8 +12,15 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    fetch('/api/orders').then(r => r.json()).then(d => { setOrders(d); setLoading(false); });
+    fetchOrders();
   }, []);
+
+  async function fetchOrders() {
+    const res = await fetch('/api/orders');
+    const data = await res.json();
+    setOrders(data);
+    setLoading(false);
+  }
 
   async function exportExcel() {
     setExporting(true);
@@ -28,13 +35,22 @@ export default function OrdersPage() {
     setExporting(false);
   }
 
+  async function toggleIsEntered(id: string, current: boolean) {
+    await fetch('/api/orders', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, isEntered: !current })
+    });
+    fetchOrders(); // refresh
+  }
+
   const filtered = orders.filter(o => {
     if (!search) return true;
     return (
-      o.customer_name?.includes(search) ||
+      o.customerName?.includes(search) ||
       o.user_name?.includes(search) ||
-      o.cart_number?.includes(search) ||
-      o.order_number?.includes(search)
+      o.cartNumber?.includes(search) ||
+      o.orderNumber?.includes(search)
     );
   });
 
@@ -81,24 +97,40 @@ export default function OrdersPage() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    {new Date(order.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}{' '}
-                    {new Date(order.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(order.createdAt).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}{' '}
+                    {new Date(order.createdAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                   {role !== 'customer' && (
                     <span className={`badge ${order.user_role === 'admin' ? 'badge-amber' : order.user_role === 'agent' ? 'badge-blue' : 'badge-green'}`}>
                       {order.user_name}
                     </span>
                   )}
-                  {order.customer_name && (
-                    <span style={{ fontWeight: 700, fontSize: '13px' }}>{order.customer_name}</span>
+                  {order.customerName && (
+                    <span style={{ fontWeight: 700, fontSize: '13px' }}>{order.customerName}</span>
                   )}
-                  {order.cart_number && (
-                    <span className="badge badge-purple">עגלה: {order.cart_number}</span>
+                  {order.cartNumber && (
+                    <span className="badge badge-purple">עגלה: {order.cartNumber}</span>
                   )}
-                  {order.order_number && (
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>הזמנה: {order.order_number}</span>
+                  {order.orderNumber && (
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>הזמנה: {order.orderNumber}</span>
+                  )}
+                  
+                  {/* isEntered Checkbox inside the header */}
+                  {(role === 'admin' || role === 'agent') && (
+                    <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '10px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={order.isEntered} 
+                        onChange={() => toggleIsEntered(order.id, order.isEntered)}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                      />
+                      <span style={{ fontSize: '11px', color: order.isEntered ? 'var(--green)' : 'var(--text-muted)' }}>
+                        {order.isEntered ? 'הוקלד למעלה' : 'לא הוקלד'}
+                      </span>
+                    </div>
                   )}
                 </div>
+                
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                     {order.items?.length || 0} פריטים |{' '}
@@ -114,9 +146,14 @@ export default function OrdersPage() {
                 <div style={{ borderTop: '1px solid var(--border)', padding: '14px 18px' }}>
                   {/* Order metadata */}
                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                    {order.line_number && <span className="badge badge-blue">שורה: {order.line_number}</span>}
-                    {order.prod_order_number && <span className="badge badge-purple">הז' יצור: {order.prod_order_number}</span>}
-                    {order.prod_line_number && <span className="badge badge-purple">שורת יצור: {order.prod_line_number}</span>}
+                    {order.lineNumber && <span className="badge badge-blue">שורה: {order.lineNumber}</span>}
+                    {order.prodOrderNumber && <span className="badge badge-purple">הז' יצור: {order.prodOrderNumber}</span>}
+                    {order.prodLineNumber && <span className="badge badge-purple">שורת יצור: {order.prodLineNumber}</span>}
+                    {order.deliveryDate && (
+                      <span className="badge badge-amber">
+                        תאריך קבלה: {new Date(order.deliveryDate).toLocaleDateString('he-IL')}
+                      </span>
+                    )}
                   </div>
 
                   <table className="data-table">
@@ -136,13 +173,13 @@ export default function OrdersPage() {
                     <tbody>
                       {(order.items || []).map((item: any) => (
                         <tr key={item.id}>
-                          <td style={{ fontWeight: 700 }}>{item.item_name}</td>
-                          <td style={{ color: 'var(--text-muted)' }}>{item.item_code}</td>
-                          <td>{item.model_name}</td>
-                          <td style={{ color: 'var(--text-muted)' }}>{item.model_code}</td>
+                          <td style={{ fontWeight: 700 }}>{item.itemName}</td>
+                          <td style={{ color: 'var(--text-muted)' }}>{item.itemCode}</td>
+                          <td>{item.modelName}</td>
+                          <td style={{ color: 'var(--text-muted)' }}>{item.modelCode}</td>
                           <td><span className="badge badge-purple">{item.quality}</span></td>
-                          <td>{item.bloom_pct}%</td>
-                          <td style={{ color: 'var(--text-muted)' }}>{item.package_size}</td>
+                          <td>{item.bloomPct}%</td>
+                          <td style={{ color: 'var(--text-muted)' }}>{item.packageSize}</td>
                           <td><span className="badge badge-blue">{item.packages}</span></td>
                           <td style={{ color: 'var(--accent-light)', fontWeight: 700 }}>{item.units}</td>
                         </tr>

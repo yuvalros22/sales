@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -17,16 +18,22 @@ model User {
   orders    Order[]
 }
 
+model BaseItem {
+  itemCode    String  @id
+  itemName    String
+  packageSize Int     @default(1)
+  imageUrl    String?
+}
+
 model InventoryItem {
   id          String   @id @default(cuid())
-  itemCode    String   // קוד פריט (עמודה U)
-  itemName    String   // שם פריט (עמודה T)
-  modelCode   String   // קוד דגם (עמודה P)
-  modelName   String   // שם דגם (עמודה O)
-  quality     String   // איכות (עמודה I)
-  bloomPct    String   // % פריחה (עמודה H)
-  quantity    Float    // כמות זמינה
-  packageSize Int      @default(1)  // גודל אריזה
+  itemCode    String
+  itemName    String
+  modelCode   String
+  modelName   String
+  quality     String
+  bloomPct    String
+  quantity    Float
   updatedAt   DateTime @default(now())
 
   @@unique([itemCode, modelCode, quality, bloomPct])
@@ -43,6 +50,8 @@ model Order {
   prodOrderNumber String?
   prodLineNumber  String?
   status          String      @default("pending")
+  deliveryDate    DateTime?   // [NEW] תאריך יעד לקבלה
+  isEntered       Boolean     @default(false) // [NEW] האם הוקלד למעלה
   createdAt       DateTime    @default(now())
   items           OrderItem[]
 }
@@ -50,7 +59,7 @@ model Order {
 model OrderItem {
   id          String  @id @default(cuid())
   orderId     String
-  order       Order   @relation(fields: [orderId], references: [id])
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   itemCode    String
   itemName    String
   modelCode   String

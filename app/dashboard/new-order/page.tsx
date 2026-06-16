@@ -4,14 +4,14 @@ import { useEffect, useState, useMemo } from 'react';
 
 interface InventoryItem {
   id: string;
-  item_code: string;
-  item_name: string;
-  model_code: string;
-  model_name: string;
+  itemCode: string;
+  itemName: string;
+  modelCode: string;
+  modelName: string;
   quality: string;
-  bloom_pct: string;
+  bloomPct: string;
   quantity: number;
-  package_size: number;
+  packageSize: number;
 }
 
 interface CartItem {
@@ -35,6 +35,7 @@ export default function NewOrderPage() {
   const [lineNumber, setLineNumber] = useState('');
   const [prodOrderNumber, setProdOrderNumber] = useState('');
   const [prodLineNumber, setProdLineNumber] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -53,10 +54,10 @@ export default function NewOrderPage() {
   const grouped = useMemo(() => {
     const map: Record<string, { itemName: string; models: Record<string, InventoryItem[]> }> = {};
     for (const item of inventory) {
-      if (!map[item.item_code]) map[item.item_code] = { itemName: item.item_name, models: {} };
-      if (!map[item.item_code].models[item.model_code])
-        map[item.item_code].models[item.model_code] = [];
-      map[item.item_code].models[item.model_code].push(item);
+      if (!map[item.itemCode]) map[item.itemCode] = { itemName: item.itemName, models: {} };
+      if (!map[item.itemCode].models[item.modelCode])
+        map[item.itemCode].models[item.modelCode] = [];
+      map[item.itemCode].models[item.modelCode].push(item);
     }
     return map;
   }, [inventory]);
@@ -65,7 +66,7 @@ export default function NewOrderPage() {
     if (!search) return Object.entries(grouped);
     return Object.entries(grouped).filter(([code, data]) =>
       data.itemName.includes(search) || code.includes(search) ||
-      Object.values(data.models).flat().some(i => i.model_name.includes(search))
+      Object.values(data.models).flat().some(i => i.modelName.includes(search))
     );
   }, [grouped, search]);
 
@@ -76,19 +77,19 @@ export default function NewOrderPage() {
 
   function addToCart() {
     if (!selectedVariant) return;
-    const needed = packagesInput * selectedVariant.package_size;
+    const needed = packagesInput * selectedVariant.packageSize;
     
     if (role !== 'customer' || true) { // Check availability
       const existing = cart.find(c =>
-        c.item.item_code === selectedVariant.item_code &&
-        c.item.model_code === selectedVariant.model_code &&
+        c.item.itemCode === selectedVariant.itemCode &&
+        c.item.modelCode === selectedVariant.modelCode &&
         c.item.quality === selectedVariant.quality &&
-        c.item.bloom_pct === selectedVariant.bloom_pct
+        c.item.bloomPct === selectedVariant.bloomPct
       );
-      const alreadyInCart = existing ? existing.packages * existing.item.package_size : 0;
+      const alreadyInCart = existing ? existing.packages * existing.item.packageSize : 0;
       
       if (alreadyInCart + needed > selectedVariant.quantity) {
-        setErrorMsg(`אין מספיק מלאי. זמין: ${Math.floor(selectedVariant.quantity / selectedVariant.package_size)} אריזות`);
+        setErrorMsg(`אין מספיק מלאי. זמין: ${Math.floor(selectedVariant.quantity / selectedVariant.packageSize)} אריזות`);
         setTimeout(() => setErrorMsg(''), 3000);
         return;
       }
@@ -96,10 +97,10 @@ export default function NewOrderPage() {
 
     setCart(prev => {
       const existing = prev.find(c =>
-        c.item.item_code === selectedVariant.item_code &&
-        c.item.model_code === selectedVariant.model_code &&
+        c.item.itemCode === selectedVariant.itemCode &&
+        c.item.modelCode === selectedVariant.modelCode &&
         c.item.quality === selectedVariant.quality &&
-        c.item.bloom_pct === selectedVariant.bloom_pct
+        c.item.bloomPct === selectedVariant.bloomPct
       );
       if (existing) {
         return prev.map(c => c === existing ? { ...c, packages: c.packages + packagesInput } : c);
@@ -128,15 +129,16 @@ export default function NewOrderPage() {
         lineNumber,
         prodOrderNumber,
         prodLineNumber,
+        deliveryDate,
         items: cart.map(c => ({
-          itemCode: c.item.item_code,
-          itemName: c.item.item_name,
-          modelCode: c.item.model_code,
-          modelName: c.item.model_name,
+          itemCode: c.item.itemCode,
+          itemName: c.item.itemName,
+          modelCode: c.item.modelCode,
+          modelName: c.item.modelName,
           quality: c.item.quality,
-          bloomPct: c.item.bloom_pct,
+          bloomPct: c.item.bloomPct,
           packages: c.packages,
-          packageSize: c.item.package_size
+          packageSize: c.item.packageSize
         }))
       })
     });
@@ -146,7 +148,7 @@ export default function NewOrderPage() {
       setSuccessMsg('ההזמנה בוצעה בהצלחה! ✓');
       setCart([]);
       setCustomerName(''); setCartNumber(''); setOrderNumber('');
-      setLineNumber(''); setProdOrderNumber(''); setProdLineNumber('');
+      setLineNumber(''); setProdOrderNumber(''); setProdLineNumber(''); setDeliveryDate('');
       // Refresh inventory
       fetch('/api/inventory').then(r => r.json()).then(setInventory);
     } else {
@@ -171,6 +173,10 @@ export default function NewOrderPage() {
               <div className="form-group">
                 <label className="form-label">שם לקוח *</label>
                 <input className="input" value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="שם הלקוח" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">תאריך קבלה יעד *</label>
+                <input className="input" type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} />
               </div>
               <div className="form-group">
                 <label className="form-label">מספר עגלה *</label>
@@ -221,7 +227,7 @@ export default function NewOrderPage() {
                 <select className="input" value={selectedModelCode} onChange={e => { setSelectedModelCode(e.target.value); setSelectedVariant(null); }}>
                   <option value="">— בחר דגם —</option>
                   {Object.entries(selectedItemModels || {}).map(([code, variants]) => (
-                    <option key={code} value={code}>{variants[0].model_name} ({code})</option>
+                    <option key={code} value={code}>{variants[0].modelName} ({code})</option>
                   ))}
                 </select>
               </div>
@@ -236,11 +242,11 @@ export default function NewOrderPage() {
                 }}>
                   <option value="">— בחר —</option>
                   {selectedModelVariants.map(v => {
-                    const avail = Math.floor(v.quantity / v.package_size);
-                    const available = v.quantity >= v.package_size;
+                    const avail = Math.floor(v.quantity / v.packageSize);
+                    const available = v.quantity >= v.packageSize;
                     return (
                       <option key={v.id} value={v.id} disabled={!available}>
-                        איכות {v.quality} | פריחה {v.bloom_pct}% | אריזה: {v.package_size} יח' {role !== 'customer' ? `| ${avail} אריזות` : available ? '| זמין' : '| לא זמין'}
+                        איכות {v.quality} | פריחה {v.bloomPct}% | אריזה: {v.packageSize} יח' {role !== 'customer' ? `| ${avail} אריזות` : available ? '| זמין' : '| לא זמין'}
                       </option>
                     );
                   })}
@@ -251,10 +257,10 @@ export default function NewOrderPage() {
             {selectedVariant && (
               <div style={{ background: 'var(--bg-panel)', borderRadius: '8px', padding: '12px', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                  גודל אריזה: <strong style={{ color: 'var(--accent-light)' }}>{selectedVariant.package_size} יחידות</strong>
+                  גודל אריזה: <strong style={{ color: 'var(--accent-light)' }}>{selectedVariant.packageSize} יחידות</strong>
                   {role !== 'customer' && (
                     <span style={{ marginRight: '12px' }}>
-                      זמין: <strong style={{ color: 'var(--green)' }}>{Math.floor(selectedVariant.quantity / selectedVariant.package_size)} אריזות</strong>
+                      זמין: <strong style={{ color: 'var(--green)' }}>{Math.floor(selectedVariant.quantity / selectedVariant.packageSize)} אריזות</strong>
                     </span>
                   )}
                 </div>
@@ -265,14 +271,14 @@ export default function NewOrderPage() {
                       className="input"
                       type="number"
                       min="1"
-                      max={Math.floor(selectedVariant.quantity / selectedVariant.package_size)}
+                      max={Math.floor(selectedVariant.quantity / selectedVariant.packageSize)}
                       value={packagesInput}
                       onChange={e => setPackagesInput(Math.max(1, Number(e.target.value)))}
                     />
                   </div>
                   <div style={{ paddingBottom: '1px' }}>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                      = {packagesInput * selectedVariant.package_size} יחידות
+                      = {packagesInput * selectedVariant.packageSize} יחידות
                     </div>
                     <button className="btn-primary" onClick={addToCart}>הוסף לעגלה</button>
                   </div>
@@ -311,12 +317,12 @@ export default function NewOrderPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                 {cart.map((c, i) => (
                   <div key={i} style={{ background: 'var(--bg-panel)', borderRadius: '8px', padding: '10px 12px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '4px' }}>{c.item.item_name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{c.item.model_name} | {c.item.quality} | {c.item.bloom_pct}%</div>
+                    <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '4px' }}>{c.item.itemName}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{c.item.modelName} | {c.item.quality} | {c.item.bloomPct}%</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
                       <div style={{ fontSize: '11px' }}>
                         <span className="badge badge-blue">{c.packages} אריזות</span>
-                        <span style={{ color: 'var(--text-muted)', marginRight: '6px' }}>{c.packages * c.item.package_size} יח'</span>
+                        <span style={{ color: 'var(--text-muted)', marginRight: '6px' }}>{c.packages * c.item.packageSize} יח'</span>
                       </div>
                       <button
                         style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: '16px', padding: '0' }}
@@ -334,7 +340,7 @@ export default function NewOrderPage() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
                   <span>סה"כ יחידות:</span>
-                  <span style={{ color: 'var(--accent-light)' }}>{cart.reduce((s, c) => s + c.packages * c.item.package_size, 0)}</span>
+                  <span style={{ color: 'var(--accent-light)' }}>{cart.reduce((s, c) => s + c.packages * c.item.packageSize, 0)}</span>
                 </div>
               </div>
 
@@ -342,13 +348,13 @@ export default function NewOrderPage() {
                 className="btn-primary"
                 style={{ width: '100%', padding: '12px' }}
                 onClick={submitOrder}
-                disabled={submitting || (role !== 'customer' && !customerName)}
+                disabled={submitting || (role !== 'customer' && (!customerName || !deliveryDate))}
               >
                 {submitting ? 'מבצע הזמנה...' : '✓ בצע הזמנה'}
               </button>
-              {role !== 'customer' && !customerName && (
+              {role !== 'customer' && (!customerName || !deliveryDate) && (
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '8px' }}>
-                  נדרש שם לקוח
+                  נדרש שם לקוח ותאריך קבלה
                 </div>
               )}
             </>

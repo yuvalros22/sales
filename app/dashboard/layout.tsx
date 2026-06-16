@@ -7,6 +7,7 @@ const navItems = {
   admin: [
     { href: '/dashboard', label: 'סקירה כללית', icon: '📊' },
     { href: '/dashboard/inventory', label: 'מלאי', icon: '📦' },
+    { href: '/dashboard/base-items', label: 'פריטים קבועים', icon: '🗃️' },
     { href: '/dashboard/orders', label: 'הזמנות', icon: '📋' },
     { href: '/dashboard/upload', label: 'העלאת מלאי', icon: '⬆️' },
     { href: '/dashboard/users', label: 'ניהול משתמשים', icon: '👥' },
