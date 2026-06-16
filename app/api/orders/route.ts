@@ -1,97 +1,127 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import getDB from '@/lib/db';
-import { randomUUID } from 'crypto';
+import prisma from '@/lib/db';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
-  const db = getDB();
   const role = (session.user as any)?.role;
   const userId = (session as any)?.userId;
   
-  let sql = `
-    SELECT o.*, u.name as user_name, u.username, u.role as user_role
-    FROM orders o 
-    JOIN users u ON o.user_id = u.id
-  `;
-  let args: any[] = [];
+  const orders = await prisma.order.findMany({
+    where: role === 'customer' ? { userId } : {},
+    include: {
+      user: {
+        select: { name: true, username: true, role: true }
+      },
+      items: true
+    },
+    orderBy: { createdAt: 'desc' }
+  });
   
-  if (role === 'customer') {
-    sql += ' WHERE o.user_id = ?';
-    args = [userId];
-  }
-  
-  sql += ' ORDER BY o.created_at DESC';
-  const orders = await db.execute({ sql, args });
-  
-  const ordersWithItems = await Promise.all(
-    orders.rows.map(async (order: any) => {
-      const items = await db.execute({
-        sql: 'SELECT * FROM order_items WHERE order_id = ?',
-        args: [order.id]
-      });
-      return { ...order, items: items.rows };
-    })
-  );
-  
-  return NextResponse.json(ordersWithItems);
+  return NextResponse.json(orders.map(o => ({
+    ...o,
+    user_name: o.user.name,
+    username: o.user.username,
+    user_role: o.user.role
+  })));
 }
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
-  const db = getDB();
   const userId = (session as any)?.userId;
-  const { customerName, cartNumber, orderNumber, lineNumber, prodOrderNumber, prodLineNumber, items } = await req.json();
+  const { customerName, cartNumber, orderNumber, lineNumber, prodOrderNumber, prodLineNumber, items, deliveryDate } = await req.json();
   
-  // Validate stock for all items atomically
+  // Validate stock
   for (const item of items) {
-    const stock = await db.execute({
-      sql: 'SELECT quantity, package_size FROM inventory WHERE item_code=? AND model_code=? AND quality=? AND bloom_pct=?',
-      args: [item.itemCode, item.modelCode, item.quality, item.bloomPct]
+    const inv = await prisma.inventoryItem.findFirst({
+      where: {
+        itemCode: item.itemCode,
+        modelCode: item.modelCode,
+        quality: item.quality,
+        bloomPct: item.bloomPct
+      }
     });
     
-    if (stock.rows.length === 0) {
+    if (!inv) {
       return NextResponse.json({ error: `פריט ${item.itemName} לא נמצא במלאי` }, { status: 400 });
     }
     
-    const inv = stock.rows[0] as any;
-    const needed = item.packages * item.packageSize;
+    const needed = item.packages;
     
     if (inv.quantity < needed) {
       return NextResponse.json({ 
-        error: `אין מספיק מלאי עבור ${item.itemName}. זמין: ${inv.quantity} יחידות, נדרש: ${needed} יחידות` 
+        error: `אין מספיק מלאי עבור ${item.itemName}. זמין: ${inv.quantity} אריזות, נדרש: ${needed} אריזות` 
       }, { status: 400 });
     }
   }
   
-  // All checks passed - create order
-  const orderId = randomUUID();
-  
-  await db.execute({
-    sql: `INSERT INTO orders (id, user_id, customer_name, cart_number, order_number, line_number, prod_order_number, prod_line_number)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [orderId, userId, customerName || null, cartNumber || null, orderNumber || null, lineNumber || null, prodOrderNumber || null, prodLineNumber || null]
+  // Create order
+  const newOrder = await prisma.order.create({
+    data: {
+      userId,
+      customerName: customerName || null,
+      cartNumber: cartNumber || null,
+      orderNumber: orderNumber || null,
+      lineNumber: lineNumber || null,
+      prodOrderNumber: prodOrderNumber || null,
+      prodLineNumber: prodLineNumber || null,
+      deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
+      items: {
+        create: items.map((item: any) => ({
+          itemCode: item.itemCode,
+          itemName: item.itemName,
+          modelCode: item.modelCode,
+          modelName: item.modelName,
+          quality: item.quality,
+          bloomPct: item.bloomPct,
+          packages: item.packages,
+          units: item.packages * item.packageSize,
+          packageSize: item.packageSize
+        }))
+      }
+    }
   });
   
+  // Deduct from inventory
   for (const item of items) {
-    const units = item.packages * item.packageSize;
-    await db.execute({
-      sql: `INSERT INTO order_items (id, order_id, item_code, item_name, model_code, model_name, quality, bloom_pct, packages, units, package_size)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [randomUUID(), orderId, item.itemCode, item.itemName, item.modelCode, item.modelName, item.quality, item.bloomPct, item.packages, units, item.packageSize]
+    const inv = await prisma.inventoryItem.findFirst({
+      where: {
+        itemCode: item.itemCode,
+        modelCode: item.modelCode,
+        quality: item.quality,
+        bloomPct: item.bloomPct
+      }
     });
-    
-    // Deduct from inventory
-    await db.execute({
-      sql: 'UPDATE inventory SET quantity = quantity - ? WHERE item_code=? AND model_code=? AND quality=? AND bloom_pct=?',
-      args: [units, item.itemCode, item.modelCode, item.quality, item.bloomPct]
-    });
+
+    if (inv) {
+      await prisma.inventoryItem.update({
+        where: { id: inv.id },
+        data: { quantity: inv.quantity - item.packages }
+      });
+    }
   }
   
-  return NextResponse.json({ ok: true, orderId });
+  return NextResponse.json({ ok: true, orderId: newOrder.id });
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  
+  const role = (session.user as any)?.role;
+  if (!['admin', 'agent'].includes(role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id, isEntered } = await req.json();
+
+  await prisma.order.update({
+    where: { id },
+    data: { isEntered }
+  });
+
+  return NextResponse.json({ ok: true });
 }

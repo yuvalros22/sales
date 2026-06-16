@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import getDB from '@/lib/db';
+import prisma from '@/lib/db';
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -10,13 +10,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   
-  const { itemCode, modelCode, quality, bloomPct, packageSize } = await req.json();
-  const db = getDB();
+  const { itemCode, packageSize, itemName } = await req.json();
   
-  await db.execute({
-    sql: `UPDATE inventory SET package_size = ? 
-          WHERE item_code = ? AND model_code = ? AND quality = ? AND bloom_pct = ?`,
-    args: [packageSize, itemCode, modelCode, quality, bloomPct]
+  await prisma.baseItem.upsert({
+    where: { itemCode },
+    update: { packageSize },
+    create: {
+      itemCode,
+      itemName: itemName || 'Unknown',
+      packageSize
+    }
   });
   
   return NextResponse.json({ ok: true });

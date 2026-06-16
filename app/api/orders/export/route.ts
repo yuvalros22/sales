@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import getDB from '@/lib/db';
+import prisma from '@/lib/db';
 import * as XLSX from 'xlsx';
 
 export async function GET() {
@@ -11,35 +11,34 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   
-  const db = getDB();
-  const orders = await db.execute(`
-    SELECT o.*, u.name as agent_name, u.username
-    FROM orders o JOIN users u ON o.user_id = u.id
-    ORDER BY o.created_at DESC
-  `);
+  const orders = await prisma.order.findMany({
+    include: { user: true, items: true },
+    orderBy: { createdAt: 'desc' }
+  });
   
   const rows: any[] = [];
-  for (const order of orders.rows as any[]) {
-    const items = await db.execute({ sql: 'SELECT * FROM order_items WHERE order_id = ?', args: [order.id] });
-    for (const item of items.rows as any[]) {
+  for (const order of orders) {
+    for (const item of order.items) {
       rows.push({
-        'תאריך': order.created_at,
-        'סוכן': order.agent_name,
-        'לקוח': order.customer_name || '',
-        'מספר עגלה': order.cart_number || '',
-        'מספר הזמנה': order.order_number || '',
-        'מספר שורה': order.line_number || '',
-        'הזמנת יצור': order.prod_order_number || '',
-        'שורת יצור': order.prod_line_number || '',
-        'קוד פריט': item.item_code,
-        'שם פריט': item.item_name,
-        'קוד דגם': item.model_code,
-        'שם דגם': item.model_name,
+        'תאריך הזמנה': order.createdAt.toISOString().split('T')[0],
+        'סוכן': order.user.name,
+        'לקוח': order.customerName || '',
+        'תאריך יעד לקבלה': order.deliveryDate ? order.deliveryDate.toISOString().split('T')[0] : '',
+        'הוקלד למעלה': order.isEntered ? 'כן' : 'לא',
+        'מספר עגלה': order.cartNumber || '',
+        'מספר הזמנה': order.orderNumber || '',
+        'מספר שורה': order.lineNumber || '',
+        'הזמנת יצור': order.prodOrderNumber || '',
+        'שורת יצור': order.prodLineNumber || '',
+        'קוד פריט': item.itemCode,
+        'שם פריט': item.itemName,
+        'קוד דגם': item.modelCode,
+        'שם דגם': item.modelName,
         'איכות': item.quality,
-        'פריחה': item.bloom_pct,
+        'פריחה': item.bloomPct,
         'כמות אריזות': item.packages,
         'כמות יחידות': item.units,
-        'גודל אריזה': item.package_size,
+        'גודל אריזה': item.packageSize,
       });
     }
   }
