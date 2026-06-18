@@ -6,6 +6,7 @@ interface BaseItem {
   itemCode: string;
   itemName: string;
   packageSize: number;
+  imageUrl?: string | null;
 }
 
 export default function BaseItemsPage() {
@@ -48,6 +49,53 @@ export default function BaseItemsPage() {
     if (!confirm('האם למחוק פריט זה?')) return;
     await fetch(`/api/base-items?code=${code}`, { method: 'DELETE' });
     fetchItems();
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>, itemCode: string) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Client-side resizing
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400;
+        const MAX_HEIGHT = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+        // Upload to API
+        await fetch('/api/base-items/image', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemCode, imageUrl: dataUrl })
+        });
+        
+        fetchItems();
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   }
 
   const filtered = items.filter(i => 
@@ -97,6 +145,7 @@ export default function BaseItemsPage() {
         <table className="data-table">
           <thead>
             <tr>
+              <th style={{ width: '60px' }}>תמונה</th>
               <th>קוד פריט</th>
               <th>שם פריט</th>
               <th>גודל אריזה</th>
@@ -106,6 +155,16 @@ export default function BaseItemsPage() {
           <tbody>
             {filtered.map(item => (
               <tr key={item.itemCode}>
+                <td>
+                  <label style={{ cursor: 'pointer', display: 'block', width: '40px', height: '40px', borderRadius: '4px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', position: 'relative' }}>
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>📷</div>
+                    )}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageUpload(e, item.itemCode)} />
+                  </label>
+                </td>
                 <td style={{ color: 'var(--text-muted)' }}>{item.itemCode}</td>
                 <td style={{ fontWeight: 700 }}>{item.itemName}</td>
                 <td><span className="badge badge-amber">{item.packageSize} יחידות</span></td>
@@ -116,7 +175,7 @@ export default function BaseItemsPage() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={4} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>לא נמצאו פריטים</td></tr>
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>לא נמצאו פריטים</td></tr>
             )}
           </tbody>
         </table>
