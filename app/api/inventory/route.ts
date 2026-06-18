@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         await prisma.inventoryItem.update({
           where: { id: inventoryItem.id },
           data: {
-            quantity: inventoryItem.quantity - po.packages
+            quantity: inventoryItem.quantity - po.units
           }
         });
       }

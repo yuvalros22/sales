@@ -63,6 +63,14 @@ export default function OrdersPage() {
     fetchOrders();
   }
 
+  async function deleteOrder(id: string) {
+    if (!window.confirm('האם אתה בטוח שברצונך למחוק הזמנה זו? כל היחידות יוחזרו למלאי.')) return;
+    const res = await fetch(`/api/orders?id=${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) alert(data.error || 'שגיאה במחיקה');
+    fetchOrders();
+  }
+
   const displayedOrders = useMemo(() => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -269,7 +277,7 @@ export default function OrdersPage() {
                     
                     {/* Inline edit cart number */}
                     {(role === 'admin' || role === 'agent') && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: 'auto' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: 'auto' }}>
                         {editingCartId === order.id ? (
                           <>
                             <input 
@@ -299,15 +307,27 @@ export default function OrdersPage() {
                           <>
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>עגלה: {order.cartNumber || '---'}</span>
                             <button 
-                              style={{ background: 'none', border: 'none', color: 'var(--accent-light)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}
+                              style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--accent-light)', cursor: 'pointer', fontSize: '11px', padding: '4px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
                               onClick={() => {
                                 setEditingCartId(order.id);
                                 setEditCartNumber(order.cartNumber || '');
                               }}
                             >
-                              ✏️ ערוך עגלה
+                              ✏️ ערוך
                             </button>
                           </>
+                        )}
+                        {order.isEntered ? (
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            לא ניתן למחוק - כבר הוקלדה
+                          </span>
+                        ) : (
+                          <button 
+                            style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--red)', cursor: 'pointer', fontSize: '11px', padding: '4px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
+                            onClick={() => deleteOrder(order.id)}
+                          >
+                            🗑️ מחק
+                          </button>
                         )}
                       </div>
                     )}

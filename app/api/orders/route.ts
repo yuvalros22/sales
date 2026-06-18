@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     );
     operations.push(prisma.inventoryItem.update({
       where: { id: inv!.id },
-      data: { quantity: { decrement: item.packages } }
+      data: { quantity: { decrement: item.packages * item.packageSize } }
     }));
   }
 
@@ -134,6 +134,55 @@ export async function PATCH(req: NextRequest) {
     where: { id },
     data: dataToUpdate
   });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  
+  const role = (session.user as any)?.role;
+  if (!['admin', 'agent'].includes(role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: { items: true }
+  });
+
+  if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  if (order.isEntered) {
+    return NextResponse.json({ error: 'לא ניתן למחוק הזמנה שכבר סומנה כ"הוקלדה".' }, { status: 400 });
+  }
+
+  const operations: any[] = [];
+
+  // Restore inventory
+  for (const item of order.items) {
+    const inv = await prisma.inventoryItem.findFirst({
+      where: {
+        itemCode: item.itemCode,
+        modelCode: item.modelCode,
+        quality: item.quality,
+        bloomPct: item.bloomPct
+      }
+    });
+    if (inv) {
+      operations.push(prisma.inventoryItem.update({
+        where: { id: inv.id },
+        data: { quantity: { increment: item.units } }
+      }));
+    }
+  }
+
+  operations.push(prisma.order.delete({ where: { id } }));
+
+  await prisma.$transaction(operations);
 
   return NextResponse.json({ ok: true });
 }
