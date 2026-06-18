@@ -36,32 +36,42 @@ export async function POST(req: NextRequest) {
   const userId = (session as any)?.userId;
   const { customerName, cartNumber, orderNumber, lineNumber, prodOrderNumber, prodLineNumber, items, deliveryDate } = await req.json();
   
-  // Validate stock
-  for (const item of items) {
-    const inv = await prisma.inventoryItem.findFirst({
-      where: {
+  // Pre-fetch all relevant inventory items in ONE query
+  const inventoryItems = await prisma.inventoryItem.findMany({
+    where: {
+      OR: items.map((item: any) => ({
         itemCode: item.itemCode,
         modelCode: item.modelCode,
         quality: item.quality,
         bloomPct: item.bloomPct
-      }
-    });
+      }))
+    }
+  });
+
+  // Validate stock locally
+  for (const item of items) {
+    const inv = inventoryItems.find((i: any) => 
+      i.itemCode === item.itemCode && 
+      i.modelCode === item.modelCode && 
+      i.quality === item.quality && 
+      i.bloomPct === item.bloomPct
+    );
     
     if (!inv) {
       return NextResponse.json({ error: `פריט ${item.itemName} לא נמצא במלאי` }, { status: 400 });
     }
     
-    const needed = item.packages;
-    
-    if (inv.quantity < needed) {
+    if (inv.quantity < item.packages) {
       return NextResponse.json({ 
-        error: `אין מספיק מלאי עבור ${item.itemName}. זמין: ${inv.quantity} אריזות, נדרש: ${needed} אריזות` 
+        error: `אין מספיק מלאי עבור ${item.itemName}. זמין: ${inv.quantity} אריזות, נדרש: ${item.packages} אריזות` 
       }, { status: 400 });
     }
   }
-  
-  // Create order
-  const newOrder = await prisma.order.create({
+
+  // Execute order creation and all inventory deductions in a SINGLE transaction
+  const operations: any[] = [];
+
+  operations.push(prisma.order.create({
     data: {
       userId,
       customerName: customerName || null,
@@ -85,26 +95,23 @@ export async function POST(req: NextRequest) {
         }))
       }
     }
-  });
-  
-  // Deduct from inventory
-  for (const item of items) {
-    const inv = await prisma.inventoryItem.findFirst({
-      where: {
-        itemCode: item.itemCode,
-        modelCode: item.modelCode,
-        quality: item.quality,
-        bloomPct: item.bloomPct
-      }
-    });
+  }));
 
-    if (inv) {
-      await prisma.inventoryItem.update({
-        where: { id: inv.id },
-        data: { quantity: inv.quantity - item.packages }
-      });
-    }
+  for (const item of items) {
+    const inv = inventoryItems.find((i: any) => 
+      i.itemCode === item.itemCode && 
+      i.modelCode === item.modelCode && 
+      i.quality === item.quality && 
+      i.bloomPct === item.bloomPct
+    );
+    operations.push(prisma.inventoryItem.update({
+      where: { id: inv!.id },
+      data: { quantity: { decrement: item.packages } }
+    }));
   }
+
+  const results = await prisma.$transaction(operations);
+  const newOrder = results[0];
   
   return NextResponse.json({ ok: true, orderId: newOrder.id });
 }
@@ -116,11 +123,16 @@ export async function PATCH(req: NextRequest) {
   const role = (session.user as any)?.role;
   if (!['admin', 'agent'].includes(role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { id, isEntered } = await req.json();
+  const body = await req.json();
+  const { id, isEntered, cartNumber } = body;
+
+  const dataToUpdate: any = {};
+  if (isEntered !== undefined) dataToUpdate.isEntered = isEntered;
+  if (cartNumber !== undefined) dataToUpdate.cartNumber = cartNumber;
 
   await prisma.order.update({
     where: { id },
-    data: { isEntered }
+    data: dataToUpdate
   });
 
   return NextResponse.json({ ok: true });
