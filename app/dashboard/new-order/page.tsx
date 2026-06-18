@@ -40,7 +40,7 @@ export default function NewOrderPage() {
   const [lineNumber, setLineNumber] = useState('');
   const [prodOrderNumber, setProdOrderNumber] = useState('');
   const [prodLineNumber, setProdLineNumber] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -160,7 +160,7 @@ export default function NewOrderPage() {
       setSuccessMsg('ההזמנה בוצעה בהצלחה! ✓');
       setCart([]);
       setCustomerName(''); setCartNumber(''); setOrderNumber('');
-      setLineNumber(''); setProdOrderNumber(''); setProdLineNumber(''); setDeliveryDate('');
+      setLineNumber(''); setProdOrderNumber(''); setProdLineNumber(''); setDeliveryDate(new Date().toISOString().split('T')[0]);
       fetch('/api/inventory').then(r => r.json()).then(setInventory);
       setTimeout(() => setSuccessMsg(''), 5000);
     } else {
