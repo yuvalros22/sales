@@ -145,7 +145,7 @@ export default function OrdersPage() {
             padding: '10px 16px', background: 'none', border: 'none', fontSize: '15px', fontWeight: tab === 'current' ? 800 : 500,
             color: tab === 'current' ? 'var(--text-primary)' : 'var(--text-muted)',
             borderBottom: tab === 'current' ? '2px solid var(--accent)' : '2px solid transparent',
-            cursor: 'pointer'
+            cursor: 'pointer', fontFamily: 'inherit'
           }}
         >
           הזמנות נוכחיות
@@ -156,7 +156,7 @@ export default function OrdersPage() {
             padding: '10px 16px', background: 'none', border: 'none', fontSize: '15px', fontWeight: tab === 'history' ? 800 : 500,
             color: tab === 'history' ? 'var(--text-primary)' : 'var(--text-muted)',
             borderBottom: tab === 'history' ? '2px solid var(--accent)' : '2px solid transparent',
-            cursor: 'pointer'
+            cursor: 'pointer', fontFamily: 'inherit'
           }}
         >
           היסטוריה
