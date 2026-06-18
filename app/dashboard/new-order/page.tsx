@@ -175,7 +175,7 @@ export default function NewOrderPage() {
                 <input className="input" value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="שם הלקוח" />
               </div>
               <div className="form-group">
-                <label className="form-label">תאריך קבלה יעד *</label>
+                <label className="form-label">תאריך נדרש *</label>
                 <input className="input" type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} />
               </div>
               <div className="form-group">
@@ -356,7 +356,7 @@ export default function NewOrderPage() {
               </button>
               {role !== 'customer' && (!customerName || !deliveryDate) && (
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '8px' }}>
-                  נדרש שם לקוח ותאריך קבלה (למעלה)
+                  נדרש שם לקוח ותאריך נדרש (למעלה)
                 </div>
               )}
             </>
