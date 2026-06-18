@@ -70,3 +70,8 @@ model OrderItem {
   units       Int
   packageSize Int
 }
+
+model AppConfig {
+  id         String  @id @default("default")
+  storeOpen  Boolean @default(true)
+}
