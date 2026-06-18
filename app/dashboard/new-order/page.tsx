@@ -12,6 +12,7 @@ interface InventoryItem {
   bloomPct: string;
   quantity: number;
   packageSize: number;
+  imageUrl?: string | null;
 }
 
 interface CartItem {
@@ -26,6 +27,9 @@ export default function NewOrderPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [qualityFilter, setQualityFilter] = useState('');
+  const [modelFilter, setModelFilter] = useState('');
+  
   const [cart, setCart] = useState<CartItem[]>([]);
 
   // Agent/admin fields
@@ -41,77 +45,72 @@ export default function NewOrderPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Item picker
-  const [selectedItemCode, setSelectedItemCode] = useState('');
-  const [selectedModelCode, setSelectedModelCode] = useState('');
-  const [selectedVariant, setSelectedVariant] = useState<InventoryItem | null>(null);
-  const [packagesInput, setPackagesInput] = useState(1);
-
   useEffect(() => {
     fetch('/api/inventory').then(r => r.json()).then(d => { setInventory(d); setLoading(false); });
   }, []);
 
-  const grouped = useMemo(() => {
-    const map: Record<string, { itemName: string; models: Record<string, InventoryItem[]> }> = {};
-    for (const item of inventory) {
-      if (!map[item.itemCode]) map[item.itemCode] = { itemName: item.itemName, models: {} };
-      if (!map[item.itemCode].models[item.modelCode])
-        map[item.itemCode].models[item.modelCode] = [];
-      map[item.itemCode].models[item.modelCode].push(item);
-    }
-    return map;
+  const inStockInventory = useMemo(() => {
+    return inventory.filter(i => Math.floor(i.quantity / i.packageSize) >= 1);
   }, [inventory]);
 
   const filteredItems = useMemo(() => {
-    if (!search) return Object.entries(grouped);
-    return Object.entries(grouped).filter(([code, data]) =>
-      data.itemName.includes(search) || code.includes(search) ||
-      Object.values(data.models).flat().some(i => i.modelName.includes(search))
-    );
-  }, [grouped, search]);
-
-  const selectedItemModels = selectedItemCode ? grouped[selectedItemCode]?.models : {};
-  const selectedModelVariants = selectedItemCode && selectedModelCode
-    ? (grouped[selectedItemCode]?.models[selectedModelCode] || [])
-    : [];
-
-  function addToCart() {
-    if (!selectedVariant) return;
-    const needed = packagesInput * selectedVariant.packageSize;
-    
-    if (role !== 'customer' || true) { // Check availability
-      const existing = cart.find(c =>
-        c.item.itemCode === selectedVariant.itemCode &&
-        c.item.modelCode === selectedVariant.modelCode &&
-        c.item.quality === selectedVariant.quality &&
-        c.item.bloomPct === selectedVariant.bloomPct
-      );
-      const alreadyInCart = existing ? existing.packages * existing.item.packageSize : 0;
-      
-      if (alreadyInCart + needed > selectedVariant.quantity) {
-        setErrorMsg(`אין מספיק מלאי. זמין: ${Math.floor(selectedVariant.quantity / selectedVariant.packageSize)} אריזות`);
-        setTimeout(() => setErrorMsg(''), 3000);
-        return;
+    return inStockInventory.filter(item => {
+      if (qualityFilter && item.quality !== qualityFilter) return false;
+      if (modelFilter && item.modelCode !== modelFilter) return false;
+      if (search) {
+        const term = search.toLowerCase();
+        if (!item.itemName.toLowerCase().includes(term)) {
+          return false;
+        }
       }
-    }
-
-    setCart(prev => {
-      const existing = prev.find(c =>
-        c.item.itemCode === selectedVariant.itemCode &&
-        c.item.modelCode === selectedVariant.modelCode &&
-        c.item.quality === selectedVariant.quality &&
-        c.item.bloomPct === selectedVariant.bloomPct
-      );
-      if (existing) {
-        return prev.map(c => c === existing ? { ...c, packages: c.packages + packagesInput } : c);
-      }
-      return [...prev, { item: selectedVariant, packages: packagesInput }];
+      return true;
     });
+  }, [inStockInventory, search, qualityFilter, modelFilter]);
 
-    setSelectedItemCode('');
-    setSelectedModelCode('');
-    setSelectedVariant(null);
-    setPackagesInput(1);
+  const qualities = useMemo(() => {
+    const relevant = inStockInventory.filter(item => {
+      if (modelFilter && item.modelCode !== modelFilter) return false;
+      if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+    return Array.from(new Set(relevant.map(i => i.quality))).sort();
+  }, [inStockInventory, search, modelFilter]);
+
+  const models = useMemo(() => {
+    const relevant = inStockInventory.filter(item => {
+      if (qualityFilter && item.quality !== qualityFilter) return false;
+      if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+    const map = new Map<string, string>();
+    relevant.forEach(i => map.set(i.modelCode, i.modelName));
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [inStockInventory, search, qualityFilter]);
+
+  function updateCart(item: InventoryItem, deltaPackages: number) {
+    setCart(prev => {
+      const existing = prev.find(c => c.item.id === item.id);
+      const currentPackages = existing ? existing.packages : 0;
+      const newPackages = currentPackages + deltaPackages;
+      
+      if (newPackages <= 0) {
+        return prev.filter(c => c.item.id !== item.id);
+      }
+      
+      if (role !== 'customer' || true) {
+        const availablePackages = Math.floor(item.quantity / item.packageSize);
+        if (newPackages > availablePackages) {
+          setErrorMsg(`אין מספיק מלאי מ-${item.itemName} ${item.modelName}. זמין: ${availablePackages} אריזות`);
+          setTimeout(() => setErrorMsg(''), 3000);
+          return prev;
+        }
+      }
+
+      if (existing) {
+        return prev.map(c => c.item.id === item.id ? { ...c, packages: newPackages } : c);
+      }
+      return [...prev, { item, packages: newPackages }];
+    });
   }
 
   async function submitOrder() {
@@ -149,8 +148,8 @@ export default function NewOrderPage() {
       setCart([]);
       setCustomerName(''); setCartNumber(''); setOrderNumber('');
       setLineNumber(''); setProdOrderNumber(''); setProdLineNumber(''); setDeliveryDate('');
-      // Refresh inventory
       fetch('/api/inventory').then(r => r.json()).then(setInventory);
+      setTimeout(() => setSuccessMsg(''), 5000);
     } else {
       setErrorMsg(data.error || 'שגיאה בביצוע ההזמנה');
     }
@@ -161,7 +160,8 @@ export default function NewOrderPage() {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', alignItems: 'start' }}>
-      {/* Left: item picker */}
+      
+      {/* Left: Catalog Main Area */}
       <div>
         <h1 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '20px' }}>הזמנה חדשה</h1>
 
@@ -202,105 +202,107 @@ export default function NewOrderPage() {
           </div>
         )}
 
-        {/* Item selector */}
-        <div className="card" style={{ marginBottom: '16px' }}>
-          <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '14px', color: 'var(--accent-light)' }}>הוספת פריט</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div className="form-group">
-              <label className="form-label">חיפוש פריט</label>
-              <input className="input" placeholder="חפש לפי שם פריט..." value={search} onChange={e => { setSearch(e.target.value); setSelectedItemCode(''); setSelectedModelCode(''); setSelectedVariant(null); }} />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">בחר פריט</label>
-              <select className="input" value={selectedItemCode} onChange={e => { setSelectedItemCode(e.target.value); setSelectedModelCode(''); setSelectedVariant(null); }}>
-                <option value="">— בחר פריט —</option>
-                {filteredItems.map(([code, data]) => (
-                  <option key={code} value={code}>{data.itemName} ({code})</option>
-                ))}
-              </select>
-            </div>
-
-            {selectedItemCode && (
-              <div className="form-group">
-                <label className="form-label">בחר דגם</label>
-                <select className="input" value={selectedModelCode} onChange={e => { setSelectedModelCode(e.target.value); setSelectedVariant(null); }}>
-                  <option value="">— בחר דגם —</option>
-                  {Object.entries(selectedItemModels || {}).map(([code, variants]) => (
-                    <option key={code} value={code}>{variants[0].modelName} ({code})</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {selectedModelCode && (
-              <div className="form-group">
-                <label className="form-label">בחר איכות ופריחה</label>
-                <select className="input" value={selectedVariant?.id || ''} onChange={e => {
-                  const v = selectedModelVariants.find(i => i.id === e.target.value) || null;
-                  setSelectedVariant(v);
-                }}>
-                  <option value="">— בחר —</option>
-                  {selectedModelVariants.map(v => {
-                    const avail = Math.floor(v.quantity / v.packageSize);
-                    const available = v.quantity >= v.packageSize;
-                    return (
-                      <option key={v.id} value={v.id} disabled={!available}>
-                        איכות {v.quality} | פריחה {v.bloomPct}% | אריזה: {v.packageSize} יח' {role !== 'customer' ? `| ${avail} אריזות` : available ? '| זמין' : '| לא זמין'}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            )}
-
-            {selectedVariant && (
-              <div style={{ background: 'var(--bg-panel)', borderRadius: '8px', padding: '12px', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                  גודל אריזה: <strong style={{ color: 'var(--accent-light)' }}>{selectedVariant.packageSize} יחידות</strong>
-                  {role !== 'customer' && (
-                    <span style={{ marginRight: '12px' }}>
-                      זמין: <strong style={{ color: 'var(--green)' }}>{Math.floor(selectedVariant.quantity / selectedVariant.packageSize)} אריזות</strong>
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label">כמות אריזות</label>
-                    <input
-                      className="input"
-                      type="number"
-                      min="1"
-                      max={Math.floor(selectedVariant.quantity / selectedVariant.packageSize)}
-                      value={packagesInput}
-                      onChange={e => setPackagesInput(Math.max(1, Number(e.target.value)))}
-                    />
-                  </div>
-                  <div style={{ paddingBottom: '1px' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                      = {packagesInput * selectedVariant.packageSize} יחידות
-                    </div>
-                    <button className="btn-primary" onClick={addToCart}>הוסף לעגלה</button>
-                  </div>
-                </div>
-              </div>
-            )}
+        {/* Filters and Search */}
+        <div className="card" style={{ marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ flex: 2, minWidth: '200px' }}>
+            <input className="input" placeholder="חיפוש חופשי (לפי שם פריט בלבד)..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <div style={{ flex: 1, minWidth: '120px' }}>
+            <select className="input" value={qualityFilter} onChange={e => setQualityFilter(e.target.value)}>
+              <option value="">כל האיכויות</option>
+              {qualities.map(q => <option key={q} value={q}>איכות {q}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: 1, minWidth: '150px' }}>
+            <select className="input" value={modelFilter} onChange={e => setModelFilter(e.target.value)}>
+              <option value="">כל הדגמים</option>
+              {models.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+            </select>
           </div>
         </div>
 
+        {/* Catalog List */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {filteredItems.map(item => {
+            const cartItem = cart.find(c => c.item.id === item.id);
+            const packagesInCart = cartItem ? cartItem.packages : 0;
+            const availablePackages = Math.floor(item.quantity / item.packageSize);
+            const isOutOfStock = availablePackages <= 0;
+
+            return (
+              <div key={item.id} className="card" style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                {/* Image */}
+                <div style={{ width: '48px', height: '48px', borderRadius: '6px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.itemName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🌱</div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)' }}>
+                    {item.itemName} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>({item.modelName})</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', gap: '12px' }}>
+                    <span>איכות: <strong style={{ color: 'var(--accent-light)' }}>{item.quality}</strong></span>
+                    <span>פריחה: <strong>{item.bloomPct}%</strong></span>
+                    <span>אריזה: <strong>{item.packageSize}</strong> יח'</span>
+                  </div>
+                </div>
+
+                {/* Stock & Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  {role !== 'customer' && (
+                    <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>זמין</div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: isOutOfStock ? 'var(--red)' : 'var(--green)' }}>
+                        {availablePackages}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-base)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <button 
+                      onClick={() => updateCart(item, -1)}
+                      style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: packagesInCart > 0 ? 'var(--red)' : 'var(--text-muted)', fontSize: '18px', fontWeight: 800 }}
+                      disabled={packagesInCart === 0}
+                    >-</button>
+                    <div style={{ width: '30px', textAlign: 'center', fontWeight: 800, fontSize: '15px' }}>
+                      {packagesInCart}
+                    </div>
+                    <button 
+                      onClick={() => updateCart(item, 1)}
+                      style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: isOutOfStock || packagesInCart >= availablePackages ? 'var(--text-muted)' : 'var(--green)', fontSize: '18px', fontWeight: 800 }}
+                      disabled={isOutOfStock || packagesInCart >= availablePackages}
+                    >+</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          
+          {filteredItems.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+              לא נמצאו פריטים במלאי התואמים לסינון.
+            </div>
+          )}
+        </div>
+
         {errorMsg && (
-          <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', padding: '12px', color: 'var(--red)', fontSize: '13px' }}>
+          <div style={{ position: 'fixed', bottom: '20px', right: '20px', background: 'rgba(248,113,113,0.95)', border: '1px solid var(--red)', borderRadius: '8px', padding: '12px 20px', color: '#fff', fontSize: '14px', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
             {errorMsg}
           </div>
         )}
         {successMsg && (
-          <div style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: '8px', padding: '12px', color: 'var(--green)', fontSize: '13px', fontWeight: 700 }}>
+          <div style={{ position: 'fixed', bottom: '20px', right: '20px', background: 'rgba(74,222,128,0.95)', border: '1px solid var(--green)', borderRadius: '8px', padding: '12px 20px', color: '#000', fontSize: '14px', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.2)', fontWeight: 700 }}>
             {successMsg}
           </div>
         )}
       </div>
 
-      {/* Right: Cart */}
+      {/* Right: Cart (Sticky) */}
       <div style={{ position: 'sticky', top: '20px' }}>
         <div className="card">
           <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between' }}>
@@ -310,15 +312,15 @@ export default function NewOrderPage() {
 
           {cart.length === 0 ? (
             <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '24px 0' }}>
-              העגלה ריקה.<br />בחר פריטים משמאל.
+              העגלה ריקה.<br />הוסף פריטים מהרשימה בעזרת ה-(+)
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' }}>
                 {cart.map((c, i) => (
                   <div key={i} style={{ background: 'var(--bg-panel)', borderRadius: '8px', padding: '10px 12px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '4px' }}>{c.item.itemName}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{c.item.modelName} | {c.item.quality} | {c.item.bloomPct}%</div>
+                    <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '4px' }}>{c.item.itemName} <span style={{fontWeight: 400}}>({c.item.modelName})</span></div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>איכות {c.item.quality} | פריחה {c.item.bloomPct}%</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
                       <div style={{ fontSize: '11px' }}>
                         <span className="badge badge-blue">{c.packages} אריזות</span>
@@ -326,7 +328,7 @@ export default function NewOrderPage() {
                       </div>
                       <button
                         style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: '16px', padding: '0' }}
-                        onClick={() => setCart(prev => prev.filter((_, j) => j !== i))}
+                        onClick={() => updateCart(c.item, -c.packages)}
                       >✕</button>
                     </div>
                   </div>
@@ -354,7 +356,7 @@ export default function NewOrderPage() {
               </button>
               {role !== 'customer' && (!customerName || !deliveryDate) && (
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '8px' }}>
-                  נדרש שם לקוח ותאריך קבלה
+                  נדרש שם לקוח ותאריך קבלה (למעלה)
                 </div>
               )}
             </>

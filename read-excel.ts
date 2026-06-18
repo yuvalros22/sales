@@ -1,0 +1,1 @@
+import * as XLSX from 'xlsx'; const wb = XLSX.readFile('packages.xls'); const ws = wb.Sheets[wb.SheetNames[0]]; const data = XLSX.utils.sheet_to_json(ws); console.log('Columns:', Object.keys(data[0] || {})); console.log('Sample rows:', data.slice(0, 3));

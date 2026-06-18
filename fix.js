@@ -1,0 +1,1 @@
+const fs = require('fs'); let c = fs.readFileSync('app/dashboard/inventory/page.tsx', 'utf8'); c = c.replace(/item_code/g, 'itemCode').replace(/item_name/g, 'itemName').replace(/model_code/g, 'modelCode').replace(/model_name/g, 'modelName').replace(/bloom_pct/g, 'bloomPct').replace(/package_size/g, 'packageSize'); fs.writeFileSync('app/dashboard/inventory/page.tsx', c);
