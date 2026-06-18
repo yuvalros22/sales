@@ -9,19 +9,35 @@ export default function DashboardPage() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [storeOpen, setStoreOpen] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const [invRes, ordRes] = await Promise.all([
+      const [invRes, ordRes, configRes] = await Promise.all([
         fetch('/api/inventory'),
-        fetch('/api/orders')
+        fetch('/api/orders'),
+        fetch('/api/config')
       ]);
       if (invRes.ok) setInventory(await invRes.json());
       if (ordRes.ok) setOrders(await ordRes.json());
+      if (configRes.ok) {
+        const conf = await configRes.json();
+        setStoreOpen(conf.storeOpen);
+      }
       setLoading(false);
     }
     load();
   }, []);
+
+  async function toggleStore(e: React.ChangeEvent<HTMLInputElement>) {
+    const newValue = e.target.checked;
+    setStoreOpen(newValue);
+    await fetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeOpen: newValue })
+    });
+  }
 
   const role = (session?.user as any)?.role;
   const totalItems = inventory.length;
@@ -36,13 +52,30 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>
-          שלום, {session?.user?.name} 👋
-        </h1>
-        <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>
-          {new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>
+            שלום, {session?.user?.name} 👋
+          </h1>
+          <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>
+            {new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </div>
         </div>
+        {role === 'admin' && (
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: storeOpen ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)', border: `1px solid ${storeOpen ? 'var(--green)' : 'var(--red)'}` }}>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: storeOpen ? 'var(--green)' : 'var(--red)' }}>
+              {storeOpen ? 'האתר פתוח להזמנות' : 'האתר חסום ללקוחות'}
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <div style={{ position: 'relative' }}>
+                <input type="checkbox" checked={storeOpen} onChange={toggleStore} style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
+                <div style={{ width: '40px', height: '24px', background: storeOpen ? 'var(--green)' : 'var(--border)', borderRadius: '12px', transition: '0.3s', position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: '2px', left: storeOpen ? '2px' : '18px', width: '20px', height: '20px', background: '#fff', borderRadius: '50%', transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}></div>
+                </div>
+              </div>
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Stats */}

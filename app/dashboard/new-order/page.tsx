@@ -29,6 +29,7 @@ export default function NewOrderPage() {
   const [search, setSearch] = useState('');
   const [qualityFilter, setQualityFilter] = useState('');
   const [modelFilter, setModelFilter] = useState('');
+  const [storeOpen, setStoreOpen] = useState(true);
   
   const [cart, setCart] = useState<CartItem[]>([]);
 
@@ -46,7 +47,16 @@ export default function NewOrderPage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    fetch('/api/inventory').then(r => r.json()).then(d => { setInventory(d); setLoading(false); });
+    Promise.all([
+      fetch('/api/inventory').then(r => r.json()),
+      fetch('/api/config').then(r => r.json())
+    ]).then(([invData, configData]) => {
+      setInventory(invData);
+      if (configData && typeof configData.storeOpen === 'boolean') {
+        setStoreOpen(configData.storeOpen);
+      }
+      setLoading(false);
+    });
   }, []);
 
   const inStockInventory = useMemo(() => {
@@ -158,6 +168,20 @@ export default function NewOrderPage() {
 
   if (loading) return <div style={{ color: 'var(--text-muted)', padding: '40px' }}>טוען...</div>;
 
+  if (role === 'customer' && !storeOpen) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' }}>
+        <div style={{ fontSize: '64px', marginBottom: '20px' }}>🛑</div>
+        <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '12px' }}>
+          לצערנו כל המלאי הוזמן
+        </h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '16px' }}>
+          מוזמנים לבדוק שוב מחר!
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', alignItems: 'start' }}>
       
@@ -242,8 +266,8 @@ export default function NewOrderPage() {
 
                 {/* Info */}
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)' }}>
-                    {item.itemName} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>({item.modelName})</span>
+                  <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {item.itemName} <span className="badge badge-amber" style={{ fontSize: '12px' }}>{item.modelName}</span>
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', gap: '12px' }}>
                     <span>איכות: <strong style={{ color: 'var(--accent-light)' }}>{item.quality}</strong></span>
@@ -319,7 +343,9 @@ export default function NewOrderPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' }}>
                 {cart.map((c, i) => (
                   <div key={i} style={{ background: 'var(--bg-panel)', borderRadius: '8px', padding: '10px 12px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '4px' }}>{c.item.itemName} <span style={{fontWeight: 400}}>({c.item.modelName})</span></div>
+                    <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {c.item.itemName} <span className="badge badge-amber" style={{ fontSize: '10px', padding: '2px 6px' }}>{c.item.modelName}</span>
+                    </div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>איכות {c.item.quality} | פריחה {c.item.bloomPct}%</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
                       <div style={{ fontSize: '11px' }}>
