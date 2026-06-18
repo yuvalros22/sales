@@ -54,7 +54,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="layout">
       {/* Sidebar */}
       <div className="sidebar">
-        <div className="sidebar-logo">🌿 FlowerStock</div>
+        <div className="sidebar-logo" style={{ padding: '24px 20px', display: 'flex', justifyContent: 'center' }}>
+          <img src="/logo.png" alt="ינאי בתי צמיחה" style={{ height: '40px', objectFit: 'contain' }} />
+        </div>
 
         <nav style={{ flex: 1 }}>
           {items.map(item => (

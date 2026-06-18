@@ -28,7 +28,9 @@ export default function LoginPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', padding: '20px' }}>
       <div style={{ width: '100%', maxWidth: '380px' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-light)', marginBottom: '8px' }}>🌿 FlowerStock</div>
+          <div style={{ marginBottom: '16px' }}>
+            <img src="/logo.png" alt="ינאי בתי צמיחה" style={{ height: '60px', objectFit: 'contain' }} />
+          </div>
           <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>מערכת ניהול מלאי והזמנות</div>
         </div>
         <div className="card" style={{ padding: '28px' }}>
