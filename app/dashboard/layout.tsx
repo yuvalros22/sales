@@ -54,8 +54,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="layout">
       {/* Sidebar */}
       <div className="sidebar">
-        <div className="sidebar-logo" style={{ padding: '24px 20px', display: 'flex', justifyContent: 'center' }}>
-          <img src="/logo.png" alt="ינאי בתי צמיחה" style={{ height: '40px', objectFit: 'contain' }} />
+        <div className="sidebar-logo" style={{ padding: '16px', display: 'flex', justifyContent: 'center' }}>
+          <img src="/logo.png" alt="ינאי בתי צמיחה" style={{ width: '100%', maxWidth: '180px', maxHeight: '140px', objectFit: 'contain' }} />
         </div>
 
         <nav style={{ flex: 1 }}>

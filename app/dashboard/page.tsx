@@ -42,11 +42,13 @@ export default function DashboardPage() {
   const role = (session?.user as any)?.role;
   const totalItems = inventory.length;
   const totalStock = inventory.reduce((s: number, i: any) => s + (i.quantity || 0), 0);
-  const todayOrders = orders.filter((o: any) => {
-    const d = new Date(o.created_at);
+  const todayOrdersList = orders.filter((o: any) => {
+    const d = new Date(o.createdAt);
     const today = new Date();
     return d.toDateString() === today.toDateString();
-  }).length;
+  });
+  const todayOrders = todayOrdersList.length;
+  const todayEntered = todayOrdersList.filter((o: any) => o.isEntered).length;
 
   if (loading) return <div style={{ color: 'var(--text-muted)', padding: '40px' }}>טוען...</div>;
 
@@ -91,12 +93,12 @@ export default function DashboardPage() {
           </div>
         )}
         <div className="stat-card">
-          <div className="stat-num" style={{ color: 'var(--blue)' }}>{orders.length}</div>
-          <div className="stat-label">סה"כ הזמנות</div>
+          <div className="stat-num" style={{ color: 'var(--blue)' }}>{todayOrders}</div>
+          <div className="stat-label">סה"כ הזמנות היום</div>
         </div>
         <div className="stat-card">
-          <div className="stat-num" style={{ color: 'var(--purple)' }}>{todayOrders}</div>
-          <div className="stat-label">הזמנות היום</div>
+          <div className="stat-num" style={{ color: 'var(--purple)' }}>{todayEntered}</div>
+          <div className="stat-label">הזמנות שהוקלדו היום</div>
         </div>
       </div>
 
@@ -161,7 +163,7 @@ export default function DashboardPage() {
                 {orders.slice(0, 8).map((order: any) => (
                   <tr key={order.id}>
                     <td style={{ color: 'var(--text-muted)' }}>
-                      {new Date(order.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(order.createdAt).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </td>
                     {role !== 'customer' && (
                       <td>
@@ -170,7 +172,7 @@ export default function DashboardPage() {
                         </span>
                       </td>
                     )}
-                    <td>{order.customer_name || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                    <td>{order.customerName || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                     <td>{order.items?.length || 0} פריטים</td>
                     <td style={{ color: 'var(--accent-light)', fontWeight: 700 }}>
                       {order.items?.reduce((s: number, i: any) => s + i.units, 0) || 0}

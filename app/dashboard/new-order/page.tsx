@@ -157,7 +157,7 @@ export default function NewOrderPage() {
 
     const data = await res.json();
     if (res.ok) {
-      setSuccessMsg('ההזמנה בוצעה בהצלחה! ✓');
+      setSuccessMsg('הזמנתך בוצעה, התחלנו לארוז ✓');
       setCart([]);
       setCustomerName(''); setCartNumber(''); setOrderNumber('');
       setLineNumber(''); setProdOrderNumber(''); setProdLineNumber(''); setDeliveryDate(new Date().toISOString().split('T')[0]);
@@ -332,8 +332,20 @@ export default function NewOrderPage() {
           </div>
         )}
         {successMsg && (
-          <div style={{ position: 'fixed', bottom: '20px', right: '20px', background: 'rgba(74,222,128,0.95)', border: '1px solid var(--green)', borderRadius: '8px', padding: '12px 20px', color: '#000', fontSize: '14px', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.2)', fontWeight: 700 }}>
-            {successMsg}
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(5px)' }}>
+            <div style={{ background: 'var(--bg-panel, #ffffff)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', maxWidth: '90%', width: '500px', border: '4px solid var(--green, #22c55e)', position: 'relative' }}>
+              <button 
+                onClick={() => setSuccessMsg('')} 
+                style={{ position: 'absolute', top: '20px', right: '20px', background: 'var(--bg-base, #f3f4f6)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', fontSize: '18px', cursor: 'pointer', color: 'var(--text-primary, #000)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ✕
+              </button>
+              <div style={{ fontSize: '80px', marginBottom: '24px' }}>📦</div>
+              <h2 style={{ fontSize: '32px', color: 'var(--text-primary, #000)', margin: '0 0 16px 0', fontWeight: 900, lineHeight: 1.3 }}>
+                {successMsg}
+              </h2>
+              <p style={{ fontSize: '20px', color: 'var(--text-muted, #6b7280)', margin: 0, fontWeight: 500 }}>תודה רבה!</p>
+            </div>
           </div>
         )}
       </div>
