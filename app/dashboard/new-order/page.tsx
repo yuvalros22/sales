@@ -97,11 +97,14 @@ export default function NewOrderPage() {
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [inStockInventory, search, qualityFilter]);
 
-  function updateCart(item: InventoryItem, deltaPackages: number) {
+  function updateCart(item: InventoryItem, deltaPackages: number, absolutePackages?: number) {
     setCart(prev => {
       const existing = prev.find(c => c.item.id === item.id);
       const currentPackages = existing ? existing.packages : 0;
-      const newPackages = currentPackages + deltaPackages;
+      let newPackages = currentPackages + deltaPackages;
+      if (absolutePackages !== undefined) {
+        newPackages = absolutePackages;
+      }
       
       if (newPackages <= 0) {
         return prev.filter(c => c.item.id !== item.id);
@@ -293,9 +296,18 @@ export default function NewOrderPage() {
                       style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: packagesInCart > 0 ? 'var(--red)' : 'var(--text-muted)', fontSize: '18px', fontWeight: 800 }}
                       disabled={packagesInCart === 0}
                     >-</button>
-                    <div style={{ width: '30px', textAlign: 'center', fontWeight: 800, fontSize: '15px' }}>
-                      {packagesInCart}
-                    </div>
+                    <input 
+                      type="text" 
+                      inputMode="numeric"
+                      value={packagesInCart || ''} 
+                      onChange={e => {
+                        let val = parseInt(e.target.value);
+                        if (isNaN(val) || val < 0) val = 0;
+                        updateCart(item, 0, val);
+                      }}
+                      style={{ width: '40px', textAlign: 'center', fontWeight: 800, fontSize: '15px', background: 'transparent', border: 'none', outline: 'none', color: 'inherit' }}
+                      placeholder="0"
+                    />
                     <button 
                       onClick={() => updateCart(item, 1)}
                       style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: isOutOfStock || packagesInCart >= availablePackages ? 'var(--text-muted)' : 'var(--green)', fontSize: '18px', fontWeight: 800 }}
