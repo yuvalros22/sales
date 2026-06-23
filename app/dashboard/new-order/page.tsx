@@ -218,13 +218,13 @@ export default function NewOrderPage() {
 
   if (role === 'customer' && !storeOpen) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' }}>
-        <div style={{ fontSize: '64px', marginBottom: '20px' }}>🛑</div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center', padding: '0 20px' }}>
+        <div style={{ fontSize: '64px', marginBottom: '20px' }}>🪴</div>
         <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '12px' }}>
-          לצערנו כל המלאי הוזמן
+          מחר אנחנו מלאים עד העציץ האחרון
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '16px' }}>
-          מוזמנים לבדוק שוב מחר!
+        <p style={{ color: 'var(--text-muted)', fontSize: '16px', maxWidth: '400px', lineHeight: '1.6' }}>
+          ההזמנות למחר נסגרו, אבל אפשר לצלצל למשרד — לפעמים אנחנו מצליחים להצמיח מקום נוסף.
         </p>
       </div>
     );
