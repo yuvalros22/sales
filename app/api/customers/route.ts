@@ -7,11 +7,12 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
-  const items = await prisma.baseItem.findMany({
-    orderBy: { itemName: 'asc' }
+  const customers = await prisma.customer.findMany({
+    where: { isActive: true },
+    orderBy: { customerName: 'asc' }
   });
   
-  return NextResponse.json(items);
+  return NextResponse.json(customers);
 }
 
 export async function POST(req: NextRequest) {
@@ -20,14 +21,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { itemCode, itemName, packageSize, potSize } = await req.json();
-  const newItem = await prisma.baseItem.upsert({
-    where: { itemCode },
-    update: { itemName, packageSize: Number(packageSize), potSize },
-    create: { itemCode, itemName, packageSize: Number(packageSize), potSize }
+  const { customerCode, customerName, agentName, isActive } = await req.json();
+  const newCustomer = await prisma.customer.upsert({
+    where: { customerCode },
+    update: { customerName, agentName, isActive: isActive ?? true },
+    create: { customerCode, customerName, agentName, isActive: isActive ?? true }
   });
 
-  return NextResponse.json(newItem);
+  return NextResponse.json(newCustomer);
 }
 
 export async function DELETE(req: NextRequest) {
@@ -40,6 +41,6 @@ export async function DELETE(req: NextRequest) {
   const code = url.searchParams.get('code');
   if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
 
-  await prisma.baseItem.delete({ where: { itemCode: code } });
+  await prisma.customer.delete({ where: { customerCode: code } });
   return NextResponse.json({ ok: true });
 }

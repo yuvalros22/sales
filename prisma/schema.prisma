@@ -23,6 +23,14 @@ model BaseItem {
   itemName    String
   packageSize Int     @default(1)
   imageUrl    String?
+  potSize     String?
+}
+
+model Customer {
+  customerCode String  @id
+  customerName String
+  agentName    String?
+  isActive     Boolean @default(true)
 }
 
 model InventoryItem {
@@ -43,7 +51,9 @@ model Order {
   id              String      @id @default(cuid())
   userId          String
   user            User        @relation(fields: [userId], references: [id])
+  customerCode    String?
   customerName    String?
+  agentName       String?
   cartNumber      String?
   orderNumber     String?
   lineNumber      String?
@@ -74,4 +84,11 @@ model OrderItem {
 model AppConfig {
   id         String  @id @default("default")
   storeOpen  Boolean @default(true)
+}
+
+model GalleryImage {
+  id        String   @id @default(cuid())
+  filename  String   @unique
+  data      String   // Base64 string of the image
+  createdAt DateTime @default(now())
 }

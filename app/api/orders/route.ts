@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   const userId = (session as any)?.userId;
-  const { customerName, cartNumber, orderNumber, lineNumber, prodOrderNumber, prodLineNumber, items, deliveryDate } = await req.json();
+  const { customerName, customerCode, agentName, cartNumber, orderNumber, lineNumber, prodOrderNumber, prodLineNumber, items, deliveryDate } = await req.json();
   
   // Pre-fetch all relevant inventory items in ONE query
   const inventoryItems = await prisma.inventoryItem.findMany({
@@ -75,6 +75,8 @@ export async function POST(req: NextRequest) {
     data: {
       userId,
       customerName: customerName || null,
+      customerCode: customerCode || null,
+      agentName: agentName || null,
       cartNumber: cartNumber || null,
       orderNumber: orderNumber || null,
       lineNumber: lineNumber || null,

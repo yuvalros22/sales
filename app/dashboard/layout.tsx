@@ -8,9 +8,10 @@ const navItems = {
     { href: '/dashboard', label: 'סקירה כללית', icon: '📊' },
     { href: '/dashboard/inventory', label: 'מלאי', icon: '📦' },
     { href: '/dashboard/base-items', label: 'פריטים קבועים', icon: '🗃️' },
+    { href: '/dashboard/customers', label: 'לקוחות', icon: '👥' },
     { href: '/dashboard/orders', label: 'הזמנות', icon: '📋' },
     { href: '/dashboard/upload', label: 'העלאת מלאי', icon: '⬆️' },
-    { href: '/dashboard/users', label: 'ניהול משתמשים', icon: '👥' },
+    { href: '/dashboard/users', label: 'ניהול משתמשים', icon: '⚙️' },
   ],
   agent: [
     { href: '/dashboard', label: 'סקירה כללית', icon: '📊' },
@@ -52,8 +53,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="layout">
+      {/* Mobile Header */}
+      <div className="mobile-header">
+        <button className="hamburger-btn" onClick={() => setMobileOpen(true)}>☰</button>
+        <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--accent-light)' }}>ינאי בתי צמיחה</div>
+        <div style={{ width: '24px' }}></div> {/* Spacer for centering */}
+      </div>
+
+      {/* Sidebar Overlay */}
+      <div 
+        className={`sidebar-overlay ${mobileOpen ? 'open' : ''}`} 
+        onClick={() => setMobileOpen(false)}
+      ></div>
+
       {/* Sidebar */}
-      <div className="sidebar">
+      <div className={`sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="sidebar-logo" style={{ padding: '16px', display: 'flex', justifyContent: 'center' }}>
           <img src="/logo.png" alt="ינאי בתי צמיחה" style={{ width: '100%', maxWidth: '180px', maxHeight: '140px', objectFit: 'contain' }} />
         </div>
@@ -63,7 +77,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button
               key={item.href}
               className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}
-              onClick={() => router.push(item.href)}
+              onClick={() => {
+                router.push(item.href);
+                setMobileOpen(false);
+              }}
             >
               <span>{item.icon}</span>
               <span>{item.label}</span>

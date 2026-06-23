@@ -144,7 +144,7 @@ export default function InventoryPage() {
                       <div style={{ fontWeight: 700, fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
                         🌿 {variants[0].modelName} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({modelCode})</span>
                       </div>
-                      <div style={{ overflowX: 'auto' }}>
+                      <div className="table-responsive">
                         <table className="data-table">
                           <thead>
                             <tr>

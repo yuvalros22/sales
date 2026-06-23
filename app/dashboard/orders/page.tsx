@@ -216,6 +216,9 @@ export default function OrdersPage() {
                   {order.customerName && (
                     <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>{order.customerName}</span>
                   )}
+                  {order.agentName && (
+                    <span className="badge badge-purple" style={{ fontSize: '11px' }}>סוכן: {order.agentName}</span>
+                  )}
                   {order.cartNumber && (
                     <span className="badge badge-purple">עגלה: {order.cartNumber}</span>
                   )}
@@ -333,36 +336,38 @@ export default function OrdersPage() {
                     )}
                   </div>
 
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>שם פריט</th>
-                        <th>קוד פריט</th>
-                        <th>שם דגם</th>
-                        <th>קוד דגם</th>
-                        <th>איכות</th>
-                        <th>פריחה</th>
-                        <th>גודל אריזה</th>
-                        <th>אריזות</th>
-                        <th>יחידות</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(order.items || []).map((item: any) => (
-                        <tr key={item.id}>
-                          <td style={{ fontWeight: 700 }}>{item.itemName}</td>
-                          <td style={{ color: 'var(--text-muted)' }}>{item.itemCode}</td>
-                          <td>{item.modelName}</td>
-                          <td style={{ color: 'var(--text-muted)' }}>{item.modelCode}</td>
-                          <td><span className="badge badge-purple">{item.quality}</span></td>
-                          <td>{item.bloomPct}%</td>
-                          <td style={{ color: 'var(--text-muted)' }}>{item.packageSize}</td>
-                          <td><span className="badge badge-blue">{item.packages}</span></td>
-                          <td style={{ color: 'var(--accent-light)', fontWeight: 700 }}>{item.units}</td>
+                  <div className="table-responsive">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>שם פריט</th>
+                          <th>קוד פריט</th>
+                          <th>שם דגם</th>
+                          <th>קוד דגם</th>
+                          <th>איכות</th>
+                          <th>פריחה</th>
+                          <th>גודל אריזה</th>
+                          <th>אריזות</th>
+                          <th>יחידות</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(order.items || []).map((item: any) => (
+                          <tr key={item.id}>
+                            <td style={{ fontWeight: 700 }}>{item.itemName}</td>
+                            <td style={{ color: 'var(--text-muted)' }}>{item.itemCode}</td>
+                            <td>{item.modelName}</td>
+                            <td style={{ color: 'var(--text-muted)' }}>{item.modelCode}</td>
+                            <td><span className="badge badge-purple">{item.quality}</span></td>
+                            <td>{item.bloomPct}%</td>
+                            <td style={{ color: 'var(--text-muted)' }}>{item.packageSize}</td>
+                            <td><span className="badge badge-blue">{item.packages}</span></td>
+                            <td style={{ color: 'var(--accent-light)', fontWeight: 700 }}>{item.units}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
