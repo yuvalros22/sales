@@ -13,11 +13,18 @@ interface InventoryItem {
   quantity: number;
   packageSize: number;
   imageUrl?: string | null;
+  potSize?: string | null;
 }
 
 interface CartItem {
   item: InventoryItem;
   packages: number;
+}
+
+interface Customer {
+  customerCode: string;
+  customerName: string;
+  agentName: string | null;
 }
 
 export default function NewOrderPage() {
@@ -29,12 +36,16 @@ export default function NewOrderPage() {
   const [search, setSearch] = useState('');
   const [qualityFilter, setQualityFilter] = useState('');
   const [modelFilter, setModelFilter] = useState('');
+  const [potSizeFilter, setPotSizeFilter] = useState('');
   const [storeOpen, setStoreOpen] = useState(true);
   
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
   // Agent/admin fields
   const [customerName, setCustomerName] = useState('');
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [cartNumber, setCartNumber] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
   const [lineNumber, setLineNumber] = useState('');
@@ -45,16 +56,19 @@ export default function NewOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
       fetch('/api/inventory').then(r => r.json()),
-      fetch('/api/config').then(r => r.json())
-    ]).then(([invData, configData]) => {
+      fetch('/api/config').then(r => r.json()),
+      fetch('/api/customers').then(r => r.json())
+    ]).then(([invData, configData, custData]) => {
       setInventory(invData);
       if (configData && typeof configData.storeOpen === 'boolean') {
         setStoreOpen(configData.storeOpen);
       }
+      setCustomers(custData || []);
       setLoading(false);
     });
   }, []);
@@ -67,6 +81,7 @@ export default function NewOrderPage() {
     return inStockInventory.filter(item => {
       if (qualityFilter && item.quality !== qualityFilter) return false;
       if (modelFilter && item.modelCode !== modelFilter) return false;
+      if (potSizeFilter && item.potSize !== potSizeFilter) return false;
       if (search) {
         const term = search.toLowerCase();
         if (!item.itemName.toLowerCase().includes(term)) {
@@ -75,27 +90,39 @@ export default function NewOrderPage() {
       }
       return true;
     });
+  }, [inStockInventory, search, qualityFilter, modelFilter, potSizeFilter]);
+
+  const potSizes = useMemo(() => {
+    const relevant = inStockInventory.filter(item => {
+      if (qualityFilter && item.quality !== qualityFilter) return false;
+      if (modelFilter && item.modelCode !== modelFilter) return false;
+      if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+    return Array.from(new Set(relevant.map(i => i.potSize).filter(Boolean) as string[])).sort();
   }, [inStockInventory, search, qualityFilter, modelFilter]);
 
   const qualities = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
       if (modelFilter && item.modelCode !== modelFilter) return false;
+      if (potSizeFilter && item.potSize !== potSizeFilter) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
     return Array.from(new Set(relevant.map(i => i.quality))).sort();
-  }, [inStockInventory, search, modelFilter]);
+  }, [inStockInventory, search, modelFilter, potSizeFilter]);
 
   const models = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
       if (qualityFilter && item.quality !== qualityFilter) return false;
+      if (potSizeFilter && item.potSize !== potSizeFilter) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
     const map = new Map<string, string>();
     relevant.forEach(i => map.set(i.modelCode, i.modelName));
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-  }, [inStockInventory, search, qualityFilter]);
+  }, [inStockInventory, search, qualityFilter, potSizeFilter]);
 
   function updateCart(item: InventoryItem, deltaPackages: number, absolutePackages?: number) {
     setCart(prev => {
@@ -128,6 +155,21 @@ export default function NewOrderPage() {
 
   async function submitOrder() {
     if (cart.length === 0) return;
+    
+    let submitCustomerName = role === 'customer' ? session?.user?.name : customerName;
+    let submitCustomerCode = null;
+    let submitAgentName = null;
+
+    if (role !== 'customer') {
+      const selectedCustomer = customers.find(c => c.customerName === customerName);
+      if (!selectedCustomer) {
+        setErrorMsg('יש לבחור לקוח מתוך הרשימה הקיימת בלבד');
+        return;
+      }
+      submitCustomerCode = selectedCustomer.customerCode;
+      submitAgentName = selectedCustomer.agentName;
+    }
+
     setSubmitting(true);
     setErrorMsg('');
 
@@ -135,7 +177,9 @@ export default function NewOrderPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        customerName: role === 'customer' ? session?.user?.name : customerName,
+        customerName: submitCustomerName,
+        customerCode: submitCustomerCode,
+        agentName: submitAgentName,
         cartNumber,
         orderNumber,
         lineNumber,
@@ -159,6 +203,7 @@ export default function NewOrderPage() {
     if (res.ok) {
       setSuccessMsg('הזמנתך בוצעה, התחלנו לארוז ✓');
       setCart([]);
+      setMobileCartOpen(false);
       setCustomerName(''); setCartNumber(''); setOrderNumber('');
       setLineNumber(''); setProdOrderNumber(''); setProdLineNumber(''); setDeliveryDate(new Date().toISOString().split('T')[0]);
       fetch('/api/inventory').then(r => r.json()).then(setInventory);
@@ -186,7 +231,7 @@ export default function NewOrderPage() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', alignItems: 'start' }}>
+    <div className="new-order-grid">
       
       {/* Left: Catalog Main Area */}
       <div>
@@ -197,9 +242,66 @@ export default function NewOrderPage() {
           <div className="card" style={{ marginBottom: '16px' }}>
             <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '14px', color: 'var(--accent-light)' }}>פרטי הזמנה</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
-              <div className="form-group">
+              <div className="form-group" style={{ position: 'relative' }}>
                 <label className="form-label">שם לקוח *</label>
-                <input className="input" value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="שם הלקוח" />
+                <input 
+                  className="input" 
+                  value={customerName} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    setCustomerName(val);
+                    setCustomerDropdownOpen(val.length > 0);
+                  }} 
+                  onFocus={() => {
+                    if (customerName.length > 0) setCustomerDropdownOpen(true);
+                  }}
+                  onBlur={() => setTimeout(() => setCustomerDropdownOpen(false), 200)}
+                  placeholder="חפש ובחר לקוח..." 
+                  autoComplete="off"
+                />
+                {customerDropdownOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--bg-panel)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)',
+                    maxHeight: '220px',
+                    overflowY: 'auto',
+                    zIndex: 50,
+                    marginTop: '4px',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    {customers.filter(c => c.customerName.includes(customerName)).map(c => (
+                      <div 
+                        key={c.customerCode}
+                        style={{
+                          padding: '10px 14px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid var(--border)',
+                          fontWeight: 600,
+                          fontSize: '14px'
+                        }}
+                        onMouseDown={() => {
+                          setCustomerName(c.customerName);
+                          setCustomerDropdownOpen(false);
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-base)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        {c.customerName}
+                        {c.agentName && <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '8px' }}>({c.agentName})</span>}
+                      </div>
+                    ))}
+                    {customers.filter(c => c.customerName.includes(customerName)).length === 0 && (
+                      <div style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center' }}>לא נמצאו לקוחות</div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">תאריך נדרש *</label>
@@ -246,6 +348,12 @@ export default function NewOrderPage() {
               {models.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
             </select>
           </div>
+          <div style={{ flex: 1, minWidth: '120px' }}>
+            <select className="input" value={potSizeFilter} onChange={e => setPotSizeFilter(e.target.value)}>
+              <option value="">כל העציצים</option>
+              {potSizes.map(p => <option key={p} value={p}>עציץ {p}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* Catalog List */}
@@ -260,11 +368,14 @@ export default function NewOrderPage() {
               <div key={item.id} className="card" style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
                 {/* Image */}
                 <div style={{ width: '48px', height: '48px', borderRadius: '6px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.itemName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🌱</div>
-                  )}
+                  <img 
+                    src={`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`} 
+                    alt={item.itemName} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} 
+                    onClick={() => setZoomedImage(`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`)}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; if(e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'; }} 
+                  />
+                  <div style={{ width: '100%', height: '100%', display: 'none', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🌱</div>
                 </div>
 
                 {/* Info */}
@@ -276,6 +387,7 @@ export default function NewOrderPage() {
                     <span>איכות: <strong style={{ color: 'var(--accent-light)' }}>{item.quality}</strong></span>
                     <span>פריחה: <strong>{item.bloomPct}%</strong></span>
                     <span>אריזה: <strong>{item.packageSize}</strong> יח'</span>
+                    {item.potSize && <span>עציץ: <strong>{item.potSize}</strong></span>}
                   </div>
                 </div>
 
@@ -350,10 +462,16 @@ export default function NewOrderPage() {
         )}
       </div>
 
-      {/* Right: Cart (Sticky) */}
-      <div style={{ position: 'sticky', top: '20px' }}>
-        <div className="card">
-          <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between' }}>
+      {/* Right: Cart (Sticky on desktop, Modal on mobile) */}
+      <div className={`cart-container ${mobileCartOpen ? 'mobile-modal' : ''}`}>
+        <div className="card" style={{ position: 'relative' }}>
+          {mobileCartOpen && (
+            <button 
+              onClick={() => setMobileCartOpen(false)}
+              style={{ position: 'absolute', top: '16px', left: '16px', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '50%', width: '32px', height: '32px', fontSize: '14px', cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+            >✕</button>
+          )}
+          <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', paddingLeft: mobileCartOpen ? '36px' : '0' }}>
             <span>🛒 עגלת הזמנה</span>
             <span className="badge badge-amber">{cart.length} פריטים</span>
           </div>
@@ -413,6 +531,33 @@ export default function NewOrderPage() {
           )}
         </div>
       </div>
+
+      {/* Mobile Floating Cart Button */}
+      {cart.length > 0 && !mobileCartOpen && (
+        <button className="mobile-cart-btn" onClick={() => setMobileCartOpen(true)}>
+          🛒 סיום הזמנה ({cart.reduce((s, c) => s + c.packages, 0)} אריזות)
+        </button>
+      )}
+
+      {zoomedImage && (
+        <div 
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(5px)' }}
+          onClick={() => setZoomedImage(null)}
+        >
+          <button 
+            onClick={() => setZoomedImage(null)} 
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'var(--bg-base, #f3f4f6)', border: 'none', borderRadius: '50%', width: '44px', height: '44px', fontSize: '24px', cursor: 'pointer', color: 'var(--text-primary, #000)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}
+          >
+            ✕
+          </button>
+          <img 
+            src={zoomedImage} 
+            alt="Zoomed view" 
+            style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }} 
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

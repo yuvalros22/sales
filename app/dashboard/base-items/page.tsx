@@ -7,6 +7,7 @@ interface BaseItem {
   itemName: string;
   packageSize: number;
   imageUrl?: string | null;
+  potSize?: string | null;
 }
 
 export default function BaseItemsPage() {
@@ -51,52 +52,7 @@ export default function BaseItemsPage() {
     fetchItems();
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>, itemCode: string) {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    // Client-side resizing
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        const MAX_HEIGHT = 400;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-
-        // Upload to API
-        await fetch('/api/base-items/image', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ itemCode, imageUrl: dataUrl })
-        });
-        
-        fetchItems();
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  }
 
   const filtered = items.filter(i => 
     i.itemCode.includes(search) || i.itemName.includes(search)
@@ -111,7 +67,7 @@ export default function BaseItemsPage() {
         <h1 style={{ fontSize: '20px', fontWeight: 800 }}>מאגר פריטים קבועים</h1>
         <div style={{ display: 'flex', gap: '10px' }}>
           <input className="input" placeholder="חיפוש..." value={search} onChange={e => setSearch(e.target.value)} />
-          <button className="btn-primary" onClick={() => { setIsNew(true); setEditingItem({ itemCode: '', itemName: '', packageSize: 1 }); }}>
+          <button className="btn-primary" onClick={() => { setIsNew(true); setEditingItem({ itemCode: '', itemName: '', packageSize: 1, potSize: '' }); }}>
             ➕ פריט חדש
           </button>
         </div>
@@ -133,6 +89,10 @@ export default function BaseItemsPage() {
               <label className="form-label">גודל אריזה *</label>
               <input type="number" min="1" className="input" required value={editingItem.packageSize} onChange={e => setEditingItem({...editingItem, packageSize: Number(e.target.value)})} />
             </div>
+            <div className="form-group" style={{ flex: 1, minWidth: '100px' }}>
+              <label className="form-label">גודל עציץ</label>
+              <input className="input" value={editingItem.potSize || ''} onChange={e => setEditingItem({...editingItem, potSize: e.target.value})} placeholder="למשל 12" />
+            </div>
             <div style={{ paddingBottom: '1px', display: 'flex', gap: '8px' }}>
               <button type="submit" className="btn-primary">שמור</button>
               <button type="button" className="btn-secondary" onClick={() => setEditingItem(null)}>ביטול</button>
@@ -142,43 +102,36 @@ export default function BaseItemsPage() {
       )}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th style={{ width: '60px' }}>תמונה</th>
-              <th>קוד פריט</th>
-              <th>שם פריט</th>
-              <th>גודל אריזה</th>
-              <th style={{ width: '100px', textAlign: 'center' }}>פעולות</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(item => (
-              <tr key={item.itemCode}>
-                <td>
-                  <label style={{ cursor: 'pointer', display: 'block', width: '40px', height: '40px', borderRadius: '4px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', position: 'relative' }}>
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>📷</div>
-                    )}
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleImageUpload(e, item.itemCode)} />
-                  </label>
-                </td>
-                <td style={{ color: 'var(--text-muted)' }}>{item.itemCode}</td>
-                <td style={{ fontWeight: 700 }}>{item.itemName}</td>
-                <td><span className="badge badge-amber">{item.packageSize} יחידות</span></td>
-                <td style={{ textAlign: 'center' }}>
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }} onClick={() => { setIsNew(false); setEditingItem(item); }}>✏️</button>
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => handleDelete(item.itemCode)}>🗑️</button>
-                </td>
+        <div className="table-responsive">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>קוד פריט</th>
+                <th>שם פריט</th>
+                <th>גודל עציץ</th>
+                <th>גודל אריזה</th>
+                <th style={{ width: '100px', textAlign: 'center' }}>פעולות</th>
               </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>לא נמצאו פריטים</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map(item => (
+                <tr key={item.itemCode}>
+                  <td style={{ color: 'var(--text-muted)' }}>{item.itemCode}</td>
+                  <td style={{ fontWeight: 700 }}>{item.itemName}</td>
+                  <td><span className="badge badge-purple">{item.potSize || '-'}</span></td>
+                  <td><span className="badge badge-blue">{item.packageSize} יחידות</span></td>
+                  <td style={{ textAlign: 'center' }}>
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }} onClick={() => { setIsNew(false); setEditingItem(item); }}>✏️</button>
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => handleDelete(item.itemCode)}>🗑️</button>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>לא נמצאו פריטים</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
