@@ -1,6 +1,6 @@
 'use client';
 import { useSession } from 'next-auth/react';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 
 interface InventoryItem {
   id: string;
@@ -14,6 +14,7 @@ interface InventoryItem {
   packageSize: number;
   imageUrl?: string | null;
   potSize?: string | null;
+  category?: string | null;
 }
 
 interface CartItem {
@@ -27,6 +28,76 @@ interface Customer {
   agentName: string | null;
 }
 
+function CustomDropdown({ value, onChange, options, placeholder }: { value: string, onChange: (val: string) => void, options: {label: string, value: string}[], placeholder: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    function handleClickOutside(event: any) {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedLabel = options.find(o => o.value === value)?.label || placeholder;
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      <div 
+        className="input" 
+        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        onClick={() => setOpen(!open)}
+      >
+        <span style={{ color: value ? 'inherit' : 'var(--text-muted)' }}>{selectedLabel}</span>
+        <span style={{ fontSize: '10px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'var(--text-muted)' }}>▼</span>
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          right: 0,
+          marginTop: '4px',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border)',
+          borderRadius: '8px',
+          maxHeight: '250px',
+          overflowY: 'auto',
+          zIndex: 1000,
+          boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)'
+        }}>
+          <div 
+            style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', color: !value ? 'var(--accent-light)' : 'var(--text-primary)', fontWeight: !value ? 700 : 400 }}
+            onClick={() => { onChange(''); setOpen(false); }}
+          >
+            {placeholder}
+          </div>
+          {options.map(opt => (
+            <div 
+              key={opt.value}
+              style={{ 
+                padding: '10px 12px', 
+                cursor: 'pointer', 
+                background: value === opt.value ? 'rgba(255,255,255,0.05)' : 'transparent',
+                color: value === opt.value ? 'var(--accent-light)' : 'var(--text-primary)',
+                fontWeight: value === opt.value ? 700 : 400
+              }}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+              onMouseLeave={e => e.currentTarget.style.background = value === opt.value ? 'rgba(255,255,255,0.05)' : 'transparent'}
+            >
+              {opt.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function NewOrderPage() {
   const { data: session } = useSession();
   const role = (session?.user as any)?.role;
@@ -37,6 +108,7 @@ export default function NewOrderPage() {
   const [qualityFilter, setQualityFilter] = useState('');
   const [modelFilter, setModelFilter] = useState('');
   const [potSizeFilter, setPotSizeFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [storeOpen, setStoreOpen] = useState(true);
   
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -74,7 +146,7 @@ export default function NewOrderPage() {
   }, []);
 
   const inStockInventory = useMemo(() => {
-    return inventory.filter(i => Math.floor(i.quantity / i.packageSize) >= 1);
+    return inventory.filter(i => Math.floor(i.quantity / i.packageSize) >= 1 && i.potSize !== '136');
   }, [inventory]);
 
   const filteredItems = useMemo(() => {
@@ -82,6 +154,7 @@ export default function NewOrderPage() {
       if (qualityFilter && item.quality !== qualityFilter) return false;
       if (modelFilter && item.modelCode !== modelFilter) return false;
       if (potSizeFilter && item.potSize !== potSizeFilter) return false;
+      if (categoryFilter && item.category !== categoryFilter) return false;
       if (search) {
         const term = search.toLowerCase();
         if (!item.itemName.toLowerCase().includes(term)) {
@@ -90,39 +163,60 @@ export default function NewOrderPage() {
       }
       return true;
     });
+  }, [inStockInventory, search, qualityFilter, modelFilter, potSizeFilter, categoryFilter]);
+
+  const categories = useMemo(() => {
+    const relevant = inStockInventory.filter(item => {
+      if (qualityFilter && item.quality !== qualityFilter) return false;
+      if (modelFilter && item.modelCode !== modelFilter) return false;
+      if (potSizeFilter && item.potSize !== potSizeFilter) return false;
+      if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+    return Array.from(new Set(relevant.map(i => i.category).filter(Boolean) as string[])).sort();
   }, [inStockInventory, search, qualityFilter, modelFilter, potSizeFilter]);
 
   const potSizes = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
       if (qualityFilter && item.quality !== qualityFilter) return false;
       if (modelFilter && item.modelCode !== modelFilter) return false;
+      if (categoryFilter && item.category !== categoryFilter) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-    return Array.from(new Set(relevant.map(i => i.potSize).filter(Boolean) as string[])).sort();
-  }, [inStockInventory, search, qualityFilter, modelFilter]);
+    return Array.from(new Set(relevant.map(i => i.potSize).filter(Boolean) as string[])).sort((a, b) => parseInt(a) - parseInt(b));
+  }, [inStockInventory, search, qualityFilter, modelFilter, categoryFilter]);
 
   const qualities = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
       if (modelFilter && item.modelCode !== modelFilter) return false;
       if (potSizeFilter && item.potSize !== potSizeFilter) return false;
+      if (categoryFilter && item.category !== categoryFilter) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
     return Array.from(new Set(relevant.map(i => i.quality))).sort();
-  }, [inStockInventory, search, modelFilter, potSizeFilter]);
+  }, [inStockInventory, search, modelFilter, potSizeFilter, categoryFilter]);
 
   const models = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
       if (qualityFilter && item.quality !== qualityFilter) return false;
       if (potSizeFilter && item.potSize !== potSizeFilter) return false;
+      if (categoryFilter && item.category !== categoryFilter) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
     const map = new Map<string, string>();
     relevant.forEach(i => map.set(i.modelCode, i.modelName));
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-  }, [inStockInventory, search, qualityFilter, potSizeFilter]);
+  }, [inStockInventory, search, qualityFilter, potSizeFilter, categoryFilter]);
+
+  function formatPotSize(p: string) {
+    if (p === '1') return 'חומר ריבוי';
+    if (p === '20') return 'קערה 20';
+    if (p === '7') return 'כוס 7';
+    return `עציץ ${p}`;
+  }
 
   function updateCart(item: InventoryItem, deltaPackages: number, absolutePackages?: number) {
     setCart(prev => {
@@ -332,27 +426,43 @@ export default function NewOrderPage() {
         )}
 
         {/* Filters and Search */}
-        <div className="card" style={{ marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 2, minWidth: '200px' }}>
-            <input className="input" placeholder="חיפוש חופשי (לפי שם פריט בלבד)..." value={search} onChange={e => setSearch(e.target.value)} />
+        <div className="card" style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ width: '100%' }}>
+            <input className="input" style={{ width: '100%' }} placeholder="חיפוש חופשי (לפי שם פריט בלבד)..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <div style={{ flex: 1, minWidth: '120px' }}>
-            <select className="input" value={qualityFilter} onChange={e => setQualityFilter(e.target.value)}>
-              <option value="">כל האיכויות</option>
-              {qualities.map(q => <option key={q} value={q}>איכות {q}</option>)}
-            </select>
-          </div>
-          <div style={{ flex: 1, minWidth: '150px' }}>
-            <select className="input" value={modelFilter} onChange={e => setModelFilter(e.target.value)}>
-              <option value="">כל הדגמים</option>
-              {models.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-            </select>
-          </div>
-          <div style={{ flex: 1, minWidth: '120px' }}>
-            <select className="input" value={potSizeFilter} onChange={e => setPotSizeFilter(e.target.value)}>
-              <option value="">כל העציצים</option>
-              {potSizes.map(p => <option key={p} value={p}>עציץ {p}</option>)}
-            </select>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '110px' }}>
+              <CustomDropdown 
+                value={categoryFilter} 
+                onChange={setCategoryFilter} 
+                options={categories.map(c => ({ label: c, value: c }))} 
+                placeholder="כל סוגי העציצים" 
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: '110px' }}>
+              <CustomDropdown 
+                value={potSizeFilter} 
+                onChange={setPotSizeFilter} 
+                options={potSizes.map(p => ({ label: formatPotSize(p), value: p }))} 
+                placeholder="גודל עציץ (הכל)" 
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: '110px' }}>
+              <CustomDropdown 
+                value={modelFilter} 
+                onChange={setModelFilter} 
+                options={models.map(([code, name]) => ({ label: name, value: code }))} 
+                placeholder="כל הדגמים" 
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: '110px' }}>
+              <CustomDropdown 
+                value={qualityFilter} 
+                onChange={setQualityFilter} 
+                options={qualities.map(q => ({ label: `איכות ${q}`, value: q }))} 
+                placeholder="כל האיכויות" 
+              />
+            </div>
           </div>
         </div>
 
@@ -387,7 +497,7 @@ export default function NewOrderPage() {
                     <span>איכות: <strong style={{ color: 'var(--accent-light)' }}>{item.quality}</strong></span>
                     <span>פריחה: <strong>{item.bloomPct}%</strong></span>
                     <span>אריזה: <strong>{item.packageSize}</strong> יח'</span>
-                    {item.potSize && <span>עציץ: <strong>{item.potSize}</strong></span>}
+                    {item.potSize && <span><strong>{formatPotSize(item.potSize)}</strong></span>}
                   </div>
                 </div>
 

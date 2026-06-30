@@ -24,6 +24,7 @@ model BaseItem {
   packageSize Int     @default(1)
   imageUrl    String?
   potSize     String?
+  category    String?
 }
 
 model Customer {

@@ -15,12 +15,14 @@ export async function GET() {
   const packageMap = new Map(baseItems.map(b => [b.itemCode, b.packageSize]));
   const imageMap = new Map(baseItems.map(b => [b.itemCode, b.imageUrl]));
   const potSizeMap = new Map(baseItems.map(b => [b.itemCode, b.potSize]));
+  const categoryMap = new Map(baseItems.map(b => [b.itemCode, b.category]));
   
   const result = inventory.map(item => ({
     ...item,
     packageSize: packageMap.get(item.itemCode) || 1,
     imageUrl: imageMap.get(item.itemCode) || null,
-    potSize: potSizeMap.get(item.itemCode) || null
+    potSize: potSizeMap.get(item.itemCode) || null,
+    category: categoryMap.get(item.itemCode) || null
   }));
   
   return NextResponse.json(result);
