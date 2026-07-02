@@ -40,3 +40,25 @@ export async function DELETE(req: NextRequest) {
   await prisma.user.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
+
+export async function PUT(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if ((session?.user as any)?.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  
+  const { id, username, password, name, role } = await req.json();
+  const updateData: any = { username, name, role };
+  
+  if (password && password.trim() !== '') {
+    updateData.password = await bcrypt.hash(password, 10);
+  }
+  
+  try {
+    await prisma.user.update({
+      where: { id },
+      data: updateData
+    });
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: 'שם משתמש כבר קיים' }, { status: 400 });
+  }
+}

@@ -8,6 +8,7 @@ interface BaseItem {
   packageSize: number;
   imageUrl?: string | null;
   potSize?: string | null;
+  category?: string | null;
 }
 
 export default function BaseItemsPage() {
@@ -54,6 +55,8 @@ export default function BaseItemsPage() {
 
 
 
+  const categories = Array.from(new Set(items.map(i => i.category).filter(Boolean))) as string[];
+
   const filtered = items.filter(i => 
     i.itemCode.includes(search) || i.itemName.includes(search)
   );
@@ -67,7 +70,7 @@ export default function BaseItemsPage() {
         <h1 style={{ fontSize: '20px', fontWeight: 800 }}>מאגר פריטים קבועים</h1>
         <div style={{ display: 'flex', gap: '10px' }}>
           <input className="input" placeholder="חיפוש..." value={search} onChange={e => setSearch(e.target.value)} />
-          <button className="btn-primary" onClick={() => { setIsNew(true); setEditingItem({ itemCode: '', itemName: '', packageSize: 1, potSize: '' }); }}>
+          <button className="btn-primary" onClick={() => { setIsNew(true); setEditingItem({ itemCode: '', itemName: '', packageSize: 1, potSize: '', category: '' }); }}>
             ➕ פריט חדש
           </button>
         </div>
@@ -93,6 +96,13 @@ export default function BaseItemsPage() {
               <label className="form-label">גודל עציץ</label>
               <input className="input" value={editingItem.potSize || ''} onChange={e => setEditingItem({...editingItem, potSize: e.target.value})} placeholder="למשל 12" />
             </div>
+            <div className="form-group" style={{ flex: 1, minWidth: '120px' }}>
+              <label className="form-label">קטגוריה</label>
+              <select className="input" value={editingItem.category || ''} onChange={e => setEditingItem({...editingItem, category: e.target.value})}>
+                <option value="">-- ללא קטגוריה --</option>
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
             <div style={{ paddingBottom: '1px', display: 'flex', gap: '8px' }}>
               <button type="submit" className="btn-primary">שמור</button>
               <button type="button" className="btn-secondary" onClick={() => setEditingItem(null)}>ביטול</button>
@@ -108,6 +118,7 @@ export default function BaseItemsPage() {
               <tr>
                 <th>קוד פריט</th>
                 <th>שם פריט</th>
+                <th>קטגוריה</th>
                 <th>גודל עציץ</th>
                 <th>גודל אריזה</th>
                 <th style={{ width: '100px', textAlign: 'center' }}>פעולות</th>
@@ -118,6 +129,7 @@ export default function BaseItemsPage() {
                 <tr key={item.itemCode}>
                   <td style={{ color: 'var(--text-muted)' }}>{item.itemCode}</td>
                   <td style={{ fontWeight: 700 }}>{item.itemName}</td>
+                  <td>{item.category || '-'}</td>
                   <td><span className="badge badge-purple">{item.potSize || '-'}</span></td>
                   <td><span className="badge badge-blue">{item.packageSize} יחידות</span></td>
                   <td style={{ textAlign: 'center' }}>
@@ -127,7 +139,7 @@ export default function BaseItemsPage() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>לא נמצאו פריטים</td></tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>לא נמצאו פריטים</td></tr>
               )}
             </tbody>
           </table>

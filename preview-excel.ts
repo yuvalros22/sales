@@ -1,6 +1,6 @@
 import * as xlsx from 'xlsx';
 
-const filePath = '210626-cust_dstn_agent_210626.xls';
+const filePath = 'עציצים מעושכן.xls';
 const workbook = xlsx.readFile(filePath);
 const sheetName = workbook.SheetNames[0];
 const sheet = workbook.Sheets[sheetName];
