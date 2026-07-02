@@ -65,37 +65,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'לא נמצאו לקוחות תקינים בקובץ.' }, { status: 400 });
     }
 
-    // Sync to DB
-    const result = await prisma.$transaction(async (tx) => {
-      const incomingCodes = customers.map(c => c.customerCode);
-      
-      const { count: deleted } = await tx.customer.deleteMany({
-        where: {
-          customerCode: { notIn: incomingCodes }
-        }
-      });
+    // Sync to DB (Optimized for remote DB)
+    const existingCustomers = await prisma.customer.findMany();
+    const existingMap = new Map(existingCustomers.map(c => [c.customerCode, c]));
+    
+    const incomingCodes = customers.map(c => c.customerCode);
+    const toDelete = existingCustomers.filter(c => !incomingCodes.includes(c.customerCode)).map(c => c.customerCode);
+    
+    const toCreate = [];
+    const toUpdate = [];
 
-      let processed = 0;
-
-      for (const c of customers) {
-        await tx.customer.upsert({
-          where: { customerCode: c.customerCode },
-          update: { customerName: c.customerName, agentName: c.agentName },
-          create: { customerCode: c.customerCode, customerName: c.customerName, agentName: c.agentName }
-        });
-        processed++;
+    for (const c of customers) {
+      const ext = existingMap.get(c.customerCode);
+      if (!ext) {
+        toCreate.push({ customerCode: c.customerCode, customerName: c.customerName, agentName: c.agentName });
+      } else if (ext.customerName !== c.customerName || ext.agentName !== c.agentName) {
+        toUpdate.push({ customerCode: c.customerCode, customerName: c.customerName, agentName: c.agentName });
       }
+    }
 
-      return { processed, deleted };
-    }, {
-      maxWait: 10000,
-      timeout: 60000
-    });
+    if (toDelete.length > 0) {
+      await prisma.customer.deleteMany({ where: { customerCode: { in: toDelete } } });
+    }
+
+    if (toCreate.length > 0) {
+      await prisma.customer.createMany({ data: toCreate, skipDuplicates: true });
+    }
+
+    for (let i = 0; i < toUpdate.length; i += 50) {
+      const chunk = toUpdate.slice(i, i + 50);
+      await Promise.all(chunk.map(c => 
+        prisma.customer.update({
+          where: { customerCode: c.customerCode },
+          data: { customerName: c.customerName, agentName: c.agentName }
+        })
+      ));
+    }
 
     return NextResponse.json({
-      added: result.processed,
-      updated: result.processed,
-      deleted: result.deleted
+      added: toCreate.length,
+      updated: toUpdate.length,
+      deleted: toDelete.length
     });
   } catch (error: any) {
     console.error(error);
