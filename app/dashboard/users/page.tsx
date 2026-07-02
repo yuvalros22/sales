@@ -14,6 +14,8 @@ export default function UsersPage() {
   const [form, setForm] = useState({ username: '', password: '', name: '', role: 'customer' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
   useEffect(() => {
     if (role && role !== 'admin') router.push('/dashboard');
@@ -74,39 +76,82 @@ export default function UsersPage() {
   const roleLabel: Record<string, string> = { admin: 'מנהל', agent: 'סוכן', customer: 'לקוח' };
   const roleBadge: Record<string, string> = { admin: 'badge-amber', agent: 'badge-blue', customer: 'badge-green' };
 
+  function handleSort(key: string) {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+    setSortConfig({ key, direction });
+  }
+
+  const processedUsers = [...users]
+    .filter(u => {
+      const q = search.toLowerCase();
+      return u.name.toLowerCase().includes(q) || 
+             u.username.toLowerCase().includes(q) || 
+             roleLabel[u.role].toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      if (!sortConfig) return 0;
+      const { key, direction } = sortConfig;
+      let valA = a[key] || '';
+      let valB = b[key] || '';
+      
+      if (key === 'role') {
+        valA = roleLabel[valA] || valA;
+        valB = roleLabel[valB] || valB;
+      }
+
+      if (valA < valB) return direction === 'asc' ? -1 : 1;
+      if (valA > valB) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ fontSize: '20px', fontWeight: 800 }}>ניהול משתמשים</h1>
-        <button className="btn-primary" onClick={openAdd}>+ הוסף משתמש</button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <input className="input" placeholder="חיפוש..." value={search} onChange={e => setSearch(e.target.value)} />
+          <button className="btn-primary" onClick={openAdd}>+ הוסף משתמש</button>
+        </div>
       </div>
 
-      <div className="card">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>שם</th>
-              <th>שם משתמש</th>
-              <th>תפקיד</th>
-              <th>פעולות</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id}>
-                <td style={{ fontWeight: 700 }}>{u.name}</td>
-                <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace' }}>{u.username}</td>
-                <td><span className={`badge ${roleBadge[u.role]}`}>{roleLabel[u.role]}</span></td>
-                <td>
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px', fontSize: '16px' }} onClick={() => openEdit(u)}>✏️</button>
-                  {u.username !== 'admin' && (
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }} onClick={() => deleteUser(u.id)}>🗑️</button>
-                  )}
-                </td>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="table-responsive">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+                  שם {sortConfig?.key === 'name' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                </th>
+                <th onClick={() => handleSort('username')} style={{ cursor: 'pointer' }}>
+                  שם משתמש {sortConfig?.key === 'username' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                </th>
+                <th onClick={() => handleSort('role')} style={{ cursor: 'pointer' }}>
+                  תפקיד {sortConfig?.key === 'role' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                </th>
+                <th>פעולות</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {processedUsers.map(u => (
+                <tr key={u.id}>
+                  <td style={{ fontWeight: 700 }}>{u.name}</td>
+                  <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace' }}>{u.username}</td>
+                  <td><span className={`badge ${roleBadge[u.role]}`}>{roleLabel[u.role]}</span></td>
+                  <td>
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px', fontSize: '16px' }} onClick={() => openEdit(u)}>✏️</button>
+                    {u.username !== 'admin' && (
+                      <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }} onClick={() => deleteUser(u.id)}>🗑️</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {processedUsers.length === 0 && (
+                <tr><td colSpan={4} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>לא נמצאו משתמשים</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showAdd && (
