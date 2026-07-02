@@ -39,7 +39,7 @@ export default function LoginPage() {
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">שם משתמש</label>
-                <input className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder="admin" required />
+                <input className="input" value={username} onChange={e => setUsername(e.target.value)} required />
               </div>
               <div className="form-group">
                 <label className="form-label">סיסמה</label>
