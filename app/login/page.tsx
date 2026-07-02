@@ -14,7 +14,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    await fetch('/api/init');
+    
     const result = await signIn('credentials', { username, password, redirect: false });
     if (result?.error) {
       setError('שם משתמש או סיסמה שגויים');
@@ -39,7 +39,7 @@ export default function LoginPage() {
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">שם משתמש</label>
-                <input className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder="admin" required />
+                <input className="input" value={username} onChange={e => setUsername(e.target.value)} required />
               </div>
               <div className="form-group">
                 <label className="form-label">סיסמה</label>
@@ -53,14 +53,6 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
-          <div style={{ marginTop: '20px', padding: '14px', background: 'var(--bg-panel)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '8px' }}>משתמשי Demo:</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.8' }}>
-              <div>👑 מנהל: <strong>admin</strong> / <strong>admin123</strong></div>
-              <div>🧑‍💼 סוכן: <strong>agent1</strong> / <strong>agent123</strong></div>
-              <div>🛍️ לקוח: <strong>customer1</strong> / <strong>customer123</strong></div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
