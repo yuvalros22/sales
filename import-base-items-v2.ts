@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import prisma from './lib/db';
 
 async function main() {
-  const filePath = '240626-210626-planter size crystal report שקד.xls';
+  const filePath = 'עציצים מעושכן.xls';
   const wb = XLSX.readFile(filePath);
   const ws = wb.Sheets[wb.SheetNames[0]];
   

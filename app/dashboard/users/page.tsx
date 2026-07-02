@@ -10,6 +10,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [form, setForm] = useState({ username: '', password: '', name: '', role: 'customer' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -25,16 +26,22 @@ export default function UsersPage() {
     setLoading(false);
   }
 
-  async function addUser() {
+  async function saveUser() {
     setSaving(true);
     setError('');
+    
+    const method = editingUserId ? 'PUT' : 'POST';
+    const body = editingUserId ? { ...form, id: editingUserId } : form;
+    
     const res = await fetch('/api/users', {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
+      body: JSON.stringify(body)
     });
+    
     if (res.ok) {
       setShowAdd(false);
+      setEditingUserId(null);
       setForm({ username: '', password: '', name: '', role: 'customer' });
       load();
     } else {
@@ -42,6 +49,18 @@ export default function UsersPage() {
       setError(d.error || 'שגיאה');
     }
     setSaving(false);
+  }
+
+  function openEdit(u: any) {
+    setEditingUserId(u.id);
+    setForm({ username: u.username, password: '', name: u.name, role: u.role });
+    setShowAdd(true);
+  }
+
+  function openAdd() {
+    setEditingUserId(null);
+    setForm({ username: '', password: '', name: '', role: 'customer' });
+    setShowAdd(true);
   }
 
   async function deleteUser(id: string) {
@@ -59,7 +78,7 @@ export default function UsersPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ fontSize: '20px', fontWeight: 800 }}>ניהול משתמשים</h1>
-        <button className="btn-primary" onClick={() => setShowAdd(true)}>+ הוסף משתמש</button>
+        <button className="btn-primary" onClick={openAdd}>+ הוסף משתמש</button>
       </div>
 
       <div className="card">
@@ -69,7 +88,6 @@ export default function UsersPage() {
               <th>שם</th>
               <th>שם משתמש</th>
               <th>תפקיד</th>
-              <th>תאריך הצטרפות</th>
               <th>פעולות</th>
             </tr>
           </thead>
@@ -79,12 +97,10 @@ export default function UsersPage() {
                 <td style={{ fontWeight: 700 }}>{u.name}</td>
                 <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace' }}>{u.username}</td>
                 <td><span className={`badge ${roleBadge[u.role]}`}>{roleLabel[u.role]}</span></td>
-                <td style={{ color: 'var(--text-muted)' }}>
-                  {new Date(u.created_at).toLocaleDateString('he-IL')}
-                </td>
                 <td>
+                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px', fontSize: '16px' }} onClick={() => openEdit(u)}>✏️</button>
                   {u.username !== 'admin' && (
-                    <button className="btn-danger" onClick={() => deleteUser(u.id)}>מחק</button>
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }} onClick={() => deleteUser(u.id)}>🗑️</button>
                   )}
                 </td>
               </tr>
@@ -96,7 +112,9 @@ export default function UsersPage() {
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div style={{ fontWeight: 800, fontSize: '16px', marginBottom: '20px' }}>הוספת משתמש חדש</div>
+            <div style={{ fontWeight: 800, fontSize: '16px', marginBottom: '20px' }}>
+              {editingUserId ? 'עריכת משתמש' : 'הוספת משתמש חדש'}
+            </div>
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">שם מלא</label>
@@ -107,7 +125,7 @@ export default function UsersPage() {
                 <input className="input" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder="israel123" />
               </div>
               <div className="form-group">
-                <label className="form-label">סיסמה</label>
+                <label className="form-label">סיסמה {editingUserId && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>(השאר ריק כדי לא לשנות)</span>}</label>
                 <input className="input" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" />
               </div>
               <div className="form-group">
@@ -125,8 +143,8 @@ export default function UsersPage() {
               )}
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button className="btn-secondary" onClick={() => setShowAdd(false)}>ביטול</button>
-                <button className="btn-primary" onClick={addUser} disabled={saving || !form.username || !form.password || !form.name}>
-                  {saving ? 'שומר...' : 'הוסף משתמש'}
+                <button className="btn-primary" onClick={saveUser} disabled={saving || !form.username || (!editingUserId && !form.password) || !form.name}>
+                  {saving ? 'שומר...' : (editingUserId ? 'שמור שינויים' : 'הוסף משתמש')}
                 </button>
               </div>
             </div>

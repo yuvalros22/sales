@@ -28,7 +28,7 @@ interface Customer {
   agentName: string | null;
 }
 
-function CustomDropdown({ value, onChange, options, placeholder }: { value: string, onChange: (val: string) => void, options: {label: string, value: string}[], placeholder: string }) {
+function MultiSelectDropdown({ values, onChange, options, placeholder }: { values: string[], onChange: (val: string[]) => void, options: {label: string, value: string}[], placeholder: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   
@@ -42,7 +42,20 @@ function CustomDropdown({ value, onChange, options, placeholder }: { value: stri
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedLabel = options.find(o => o.value === value)?.label || placeholder;
+  const toggle = (val: string) => {
+    if (values.includes(val)) {
+      onChange(values.filter(v => v !== val));
+    } else {
+      onChange([...values, val]);
+    }
+  };
+
+  let selectedLabel = placeholder;
+  if (values.length === 1) {
+    selectedLabel = options.find(o => o.value === values[0])?.label || placeholder;
+  } else if (values.length > 1) {
+    selectedLabel = `${values.length} נבחרו`;
+  }
 
   return (
     <div ref={ref} style={{ position: 'relative', width: '100%' }}>
@@ -51,7 +64,7 @@ function CustomDropdown({ value, onChange, options, placeholder }: { value: stri
         style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
         onClick={() => setOpen(!open)}
       >
-        <span style={{ color: value ? 'inherit' : 'var(--text-muted)' }}>{selectedLabel}</span>
+        <span style={{ color: values.length > 0 ? 'inherit' : 'var(--text-muted)' }}>{selectedLabel}</span>
         <span style={{ fontSize: '10px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'var(--text-muted)' }}>▼</span>
       </div>
       {open && (
@@ -69,29 +82,40 @@ function CustomDropdown({ value, onChange, options, placeholder }: { value: stri
           zIndex: 1000,
           boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)'
         }}>
-          <div 
-            style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', color: !value ? 'var(--accent-light)' : 'var(--text-primary)', fontWeight: !value ? 700 : 400 }}
-            onClick={() => { onChange(''); setOpen(false); }}
-          >
-            {placeholder}
-          </div>
-          {options.map(opt => (
+          {values.length > 0 && (
             <div 
-              key={opt.value}
-              style={{ 
-                padding: '10px 12px', 
-                cursor: 'pointer', 
-                background: value === opt.value ? 'rgba(255,255,255,0.05)' : 'transparent',
-                color: value === opt.value ? 'var(--accent-light)' : 'var(--text-primary)',
-                fontWeight: value === opt.value ? 700 : 400
-              }}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-              onMouseLeave={e => e.currentTarget.style.background = value === opt.value ? 'rgba(255,255,255,0.05)' : 'transparent'}
+              style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', color: 'var(--accent-light)', fontWeight: 700 }}
+              onClick={() => { onChange([]); }}
             >
-              {opt.label}
+              נקה הכל
             </div>
-          ))}
+          )}
+          {options.map(opt => {
+            const isSelected = values.includes(opt.value);
+            return (
+              <div 
+                key={opt.value}
+                style={{ 
+                  padding: '10px 12px', 
+                  cursor: 'pointer', 
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: isSelected ? 'rgba(255,255,255,0.05)' : 'transparent',
+                  color: isSelected ? 'var(--accent-light)' : 'var(--text-primary)',
+                  fontWeight: isSelected ? 700 : 400
+                }}
+                onClick={() => { toggle(opt.value); }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                onMouseLeave={e => e.currentTarget.style.background = isSelected ? 'rgba(255,255,255,0.05)' : 'transparent'}
+              >
+                <div style={{ width: '16px', height: '16px', border: '1px solid currentColor', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {isSelected && <span style={{ fontSize: '12px' }}>✓</span>}
+                </div>
+                {opt.label}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -105,10 +129,10 @@ export default function NewOrderPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [qualityFilter, setQualityFilter] = useState('');
-  const [modelFilter, setModelFilter] = useState('');
-  const [potSizeFilter, setPotSizeFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [qualityFilter, setQualityFilter] = useState<string[]>([]);
+  const [modelFilter, setModelFilter] = useState<string[]>([]);
+  const [potSizeFilter, setPotSizeFilter] = useState<string[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [storeOpen, setStoreOpen] = useState(true);
   
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -151,10 +175,10 @@ export default function NewOrderPage() {
 
   const filteredItems = useMemo(() => {
     return inStockInventory.filter(item => {
-      if (qualityFilter && item.quality !== qualityFilter) return false;
-      if (modelFilter && item.modelCode !== modelFilter) return false;
-      if (potSizeFilter && item.potSize !== potSizeFilter) return false;
-      if (categoryFilter && item.category !== categoryFilter) return false;
+      if (qualityFilter.length > 0 && !qualityFilter.includes(item.quality)) return false;
+      if (modelFilter.length > 0 && !modelFilter.includes(item.modelCode)) return false;
+      if (potSizeFilter.length > 0 && !potSizeFilter.includes(item.potSize || '')) return false;
+      if (categoryFilter.length > 0 && !categoryFilter.includes(item.category || '')) return false;
       if (search) {
         const term = search.toLowerCase();
         if (!item.itemName.toLowerCase().includes(term)) {
@@ -167,9 +191,9 @@ export default function NewOrderPage() {
 
   const categories = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
-      if (qualityFilter && item.quality !== qualityFilter) return false;
-      if (modelFilter && item.modelCode !== modelFilter) return false;
-      if (potSizeFilter && item.potSize !== potSizeFilter) return false;
+      if (qualityFilter.length > 0 && !qualityFilter.includes(item.quality)) return false;
+      if (modelFilter.length > 0 && !modelFilter.includes(item.modelCode)) return false;
+      if (potSizeFilter.length > 0 && !potSizeFilter.includes(item.potSize || '')) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
@@ -178,9 +202,9 @@ export default function NewOrderPage() {
 
   const potSizes = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
-      if (qualityFilter && item.quality !== qualityFilter) return false;
-      if (modelFilter && item.modelCode !== modelFilter) return false;
-      if (categoryFilter && item.category !== categoryFilter) return false;
+      if (qualityFilter.length > 0 && !qualityFilter.includes(item.quality)) return false;
+      if (modelFilter.length > 0 && !modelFilter.includes(item.modelCode)) return false;
+      if (categoryFilter.length > 0 && !categoryFilter.includes(item.category || '')) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
@@ -189,9 +213,9 @@ export default function NewOrderPage() {
 
   const qualities = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
-      if (modelFilter && item.modelCode !== modelFilter) return false;
-      if (potSizeFilter && item.potSize !== potSizeFilter) return false;
-      if (categoryFilter && item.category !== categoryFilter) return false;
+      if (modelFilter.length > 0 && !modelFilter.includes(item.modelCode)) return false;
+      if (potSizeFilter.length > 0 && !potSizeFilter.includes(item.potSize || '')) return false;
+      if (categoryFilter.length > 0 && !categoryFilter.includes(item.category || '')) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
@@ -200,9 +224,9 @@ export default function NewOrderPage() {
 
   const models = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
-      if (qualityFilter && item.quality !== qualityFilter) return false;
-      if (potSizeFilter && item.potSize !== potSizeFilter) return false;
-      if (categoryFilter && item.category !== categoryFilter) return false;
+      if (qualityFilter.length > 0 && !qualityFilter.includes(item.quality)) return false;
+      if (potSizeFilter.length > 0 && !potSizeFilter.includes(item.potSize || '')) return false;
+      if (categoryFilter.length > 0 && !categoryFilter.includes(item.category || '')) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
@@ -432,32 +456,32 @@ export default function NewOrderPage() {
           </div>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '110px' }}>
-              <CustomDropdown 
-                value={categoryFilter} 
+              <MultiSelectDropdown 
+                values={categoryFilter} 
                 onChange={setCategoryFilter} 
                 options={categories.map(c => ({ label: c, value: c }))} 
                 placeholder="כל סוגי העציצים" 
               />
             </div>
             <div style={{ flex: 1, minWidth: '110px' }}>
-              <CustomDropdown 
-                value={potSizeFilter} 
+              <MultiSelectDropdown 
+                values={potSizeFilter} 
                 onChange={setPotSizeFilter} 
                 options={potSizes.map(p => ({ label: formatPotSize(p), value: p }))} 
                 placeholder="גודל עציץ (הכל)" 
               />
             </div>
             <div style={{ flex: 1, minWidth: '110px' }}>
-              <CustomDropdown 
-                value={modelFilter} 
+              <MultiSelectDropdown 
+                values={modelFilter} 
                 onChange={setModelFilter} 
                 options={models.map(([code, name]) => ({ label: name, value: code }))} 
                 placeholder="כל הדגמים" 
               />
             </div>
             <div style={{ flex: 1, minWidth: '110px' }}>
-              <CustomDropdown 
-                value={qualityFilter} 
+              <MultiSelectDropdown 
+                values={qualityFilter} 
                 onChange={setQualityFilter} 
                 options={qualities.map(q => ({ label: `איכות ${q}`, value: q }))} 
                 placeholder="כל האיכויות" 

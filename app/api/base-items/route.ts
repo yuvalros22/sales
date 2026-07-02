@@ -20,11 +20,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { itemCode, itemName, packageSize, potSize } = await req.json();
+  const { itemCode, itemName, packageSize, potSize, category } = await req.json();
   const newItem = await prisma.baseItem.upsert({
     where: { itemCode },
-    update: { itemName, packageSize: Number(packageSize), potSize },
-    create: { itemCode, itemName, packageSize: Number(packageSize), potSize }
+    update: { itemName, packageSize: Number(packageSize), potSize, category },
+    create: { itemCode, itemName, packageSize: Number(packageSize), potSize, category }
   });
 
   return NextResponse.json(newItem);
