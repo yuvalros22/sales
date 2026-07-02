@@ -3,8 +3,17 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'מערכת ניהול מלאי והזמנות',
-  description: 'ניהול מלאי, הזמנות ומכירות',
+  title: 'ינאי בתי צמיחה - מערכת הזמנות',
+  description: 'מערכת ניהול הזמנות ומלאי עבור לקוחות ינאי בתי צמיחה (משתלת ינאי). הכנסו להזמנת עציצים וצמחים.',
+  keywords: [
+    'ינאי בתי צמיחה', 
+    'משתלות ינאי', 
+    'הזמנות ינאי בתי צמיחה', 
+    'משתלת ינאי', 
+    'מערכת הזמנות ינאי', 
+    'ינאי צמחים', 
+    'התחברות ינאי בתי צמיחה'
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
