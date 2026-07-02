@@ -14,6 +14,7 @@ export default function CustomersPage() {
   const role = (session?.user as any)?.role;
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState('');
   
   const [editingItem, setEditingItem] = useState<Customer | null>(null);
@@ -51,6 +52,37 @@ export default function CustomersPage() {
     fetchCustomers();
   }
 
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm('העלאת קובץ חדש תדרוס ותעדכן את הלקוחות הקיימים. להמשיך?')) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/customers/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        alert(data.error || 'שגיאה בהעלאת הקובץ');
+      } else {
+        alert(`הקובץ עובד בהצלחה!\nנוספו: ${data.added}\nעודכנו: ${data.updated}\nנמחקו: ${data.deleted}`);
+        fetchCustomers();
+      }
+    } catch (err: any) {
+      alert('שגיאת רשת: ' + err.message);
+    } finally {
+      setUploading(false);
+      e.target.value = ''; // reset input
+    }
+  }
+
   const filtered = customers.filter(c => 
     c.customerCode.includes(search) || 
     c.customerName.includes(search) ||
@@ -66,6 +98,12 @@ export default function CustomersPage() {
         <h1 style={{ fontSize: '20px', fontWeight: 800 }}>מאגר לקוחות קבועים</h1>
         <div style={{ display: 'flex', gap: '10px' }}>
           <input className="input" placeholder="חיפוש..." value={search} onChange={e => setSearch(e.target.value)} />
+          
+          <label className={`btn-secondary ${uploading ? 'disabled' : ''}`} style={{ cursor: uploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {uploading ? 'טוען...' : '📤 עדכון מקובץ אקסל'}
+            <input type="file" accept=".xls,.xlsx" hidden onChange={handleUpload} disabled={uploading} />
+          </label>
+
           <button className="btn-primary" onClick={() => { setIsNew(true); setEditingItem({ customerCode: '', customerName: '', agentName: '', isActive: true }); }}>
             ➕ לקוח חדש
           </button>
