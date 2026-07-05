@@ -148,6 +148,7 @@ export default function NewOrderPage() {
   const [prodOrderNumber, setProdOrderNumber] = useState('');
   const [prodLineNumber, setProdLineNumber] = useState('');
   const [deliveryDate, setDeliveryDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [isDateFocused, setIsDateFocused] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -423,7 +424,14 @@ export default function NewOrderPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">תאריך נדרש *</label>
-                <input className="input" type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} />
+                <input 
+                  className="input" 
+                  type={isDateFocused ? "date" : "text"} 
+                  onFocus={() => setIsDateFocused(true)}
+                  onBlur={() => setIsDateFocused(false)}
+                  value={isDateFocused ? deliveryDate : (deliveryDate ? deliveryDate.split('-').reverse().join('/') : '')}
+                  onChange={e => setDeliveryDate(e.target.value)} 
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">מספר עגלה *</label>
