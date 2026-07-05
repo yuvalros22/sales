@@ -220,7 +220,16 @@ export default function NewOrderPage() {
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-    return Array.from(new Set(relevant.map(i => i.quality))).sort();
+    return Array.from(new Set(relevant.map(i => i.quality))).sort((a, b) => {
+      const getNum = (str: string) => {
+        const matches = str.match(/\d+/g);
+        return matches ? parseInt(matches[matches.length - 1], 10) : 999;
+      };
+      const numA = getNum(a);
+      const numB = getNum(b);
+      if (numA !== numB) return numA - numB;
+      return a.localeCompare(b);
+    });
   }, [inStockInventory, search, modelFilter, potSizeFilter, categoryFilter]);
 
   const models = useMemo(() => {
