@@ -51,9 +51,10 @@ body {
 }
 
 /* Scrollbars */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.02); border-radius: 5px; }
+::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 5px; border: 2px solid var(--bg-surface); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
 
 /* Cards */
 .card {
