@@ -84,7 +84,7 @@ function MultiSelectDropdown({ values, onChange, options, placeholder }: { value
         }}>
           {values.length > 0 && (
             <div 
-              style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', color: 'var(--accent-light)', fontWeight: 700 }}
+              style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', color: 'var(--accent-dark)', fontWeight: 700 }}
               onClick={() => { onChange([]); }}
             >
               נקה הכל
@@ -101,13 +101,13 @@ function MultiSelectDropdown({ values, onChange, options, placeholder }: { value
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  background: isSelected ? 'rgba(255,255,255,0.05)' : 'transparent',
-                  color: isSelected ? 'var(--accent-light)' : 'var(--text-primary)',
+                  background: isSelected ? 'rgba(0,0,0,0.05)' : 'transparent',
+                  color: isSelected ? 'var(--accent-dark)' : 'var(--text-primary)',
                   fontWeight: isSelected ? 700 : 400
                 }}
                 onClick={() => { toggle(opt.value); }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                onMouseLeave={e => e.currentTarget.style.background = isSelected ? 'rgba(255,255,255,0.05)' : 'transparent'}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
+                onMouseLeave={e => e.currentTarget.style.background = isSelected ? 'rgba(0,0,0,0.05)' : 'transparent'}
               >
                 <div style={{ width: '16px', height: '16px', border: '1px solid currentColor', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {isSelected && <span style={{ fontSize: '12px' }}>✓</span>}
