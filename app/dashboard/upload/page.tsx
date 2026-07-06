@@ -44,7 +44,8 @@ export default function UploadPage() {
         const modelName = String(row[14] ?? '').trim(); // O - עמודה 15 (index 14)
         const itemCode = String(row[20] ?? '').trim();  // U - עמודה 21 (index 20)
         const itemName = String(row[19] ?? '').trim();  // T - עמודה 20 (index 19)
-        const quantity = parseFloat(String(row[1] ?? '0')) || 0; // B - עמודה 2 (index 1)
+        const quantityStr = String(row[1] ?? '0').replace(/,/g, '').trim();
+        const quantity = parseFloat(quantityStr) || 0; // B - עמודה 2 (index 1)
 
         if (!itemCode || !modelCode) continue;
 
