@@ -141,6 +141,7 @@ export default function NewOrderPage() {
   // Agent/admin fields
   const [customerName, setCustomerName] = useState('');
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [cartNumber, setCartNumber] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
@@ -154,6 +155,59 @@ export default function NewOrderPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, nextFieldId: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const nextField = document.getElementById(nextFieldId);
+      if (nextField) {
+        nextField.focus();
+      }
+    }
+  };
+
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(c => c.customerName.includes(customerName));
+  }, [customers, customerName]);
+
+  const handleCustomerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!customerDropdownOpen) setCustomerDropdownOpen(true);
+      setHighlightedIndex(prev => {
+        const next = Math.min(prev + 1, filteredCustomers.length - 1);
+        setTimeout(() => {
+          const el = document.getElementById(`customer-item-${next}`);
+          if (el) el.scrollIntoView({ block: 'nearest' });
+        }, 0);
+        return next;
+      });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => {
+        const next = Math.max(prev - 1, -1);
+        setTimeout(() => {
+          const el = document.getElementById(`customer-item-${next}`);
+          if (el) el.scrollIntoView({ block: 'nearest' });
+        }, 0);
+        return next;
+      });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (customerDropdownOpen && highlightedIndex >= 0 && highlightedIndex < filteredCustomers.length) {
+        setCustomerName(filteredCustomers[highlightedIndex].customerName);
+      }
+      setCustomerDropdownOpen(false);
+      setHighlightedIndex(-1);
+      const nextField = document.getElementById('deliveryDateInput');
+      if (nextField) {
+        nextField.focus();
+      }
+    } else if (e.key === 'Escape') {
+      setCustomerDropdownOpen(false);
+      setHighlightedIndex(-1);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -373,17 +427,20 @@ export default function NewOrderPage() {
               <div className="form-group" style={{ position: 'relative' }}>
                 <label className="form-label">שם לקוח *</label>
                 <input 
+                  id="customerNameInput"
                   className="input" 
                   value={customerName} 
                   onChange={e => {
                     const val = e.target.value;
                     setCustomerName(val);
                     setCustomerDropdownOpen(val.length > 0);
+                    setHighlightedIndex(val.length > 0 ? 0 : -1);
                   }} 
                   onFocus={() => {
                     if (customerName.length > 0) setCustomerDropdownOpen(true);
                   }}
                   onBlur={() => setTimeout(() => setCustomerDropdownOpen(false), 200)}
+                  onKeyDown={handleCustomerKeyDown}
                   placeholder="חפש ובחר לקוח..." 
                   autoComplete="off"
                 />
@@ -404,28 +461,31 @@ export default function NewOrderPage() {
                     display: 'flex',
                     flexDirection: 'column'
                   }}>
-                    {customers.filter(c => c.customerName.includes(customerName)).map(c => (
+                    {filteredCustomers.map((c, idx) => (
                       <div 
+                        id={`customer-item-${idx}`}
                         key={c.customerCode}
                         style={{
                           padding: '10px 14px',
                           cursor: 'pointer',
                           borderBottom: '1px solid var(--border)',
                           fontWeight: 600,
-                          fontSize: '14px'
+                          fontSize: '14px',
+                          background: highlightedIndex === idx ? 'var(--bg-base)' : 'transparent'
                         }}
                         onMouseDown={() => {
                           setCustomerName(c.customerName);
                           setCustomerDropdownOpen(false);
+                          setHighlightedIndex(-1);
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-base)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        onMouseEnter={() => setHighlightedIndex(idx)}
+                        onMouseLeave={() => setHighlightedIndex(-1)}
                       >
                         {c.customerName}
                         {c.agentName && <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '8px' }}>({c.agentName})</span>}
                       </div>
                     ))}
-                    {customers.filter(c => c.customerName.includes(customerName)).length === 0 && (
+                    {filteredCustomers.length === 0 && (
                       <div style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center' }}>לא נמצאו לקוחות</div>
                     )}
                   </div>
@@ -434,33 +494,35 @@ export default function NewOrderPage() {
               <div className="form-group">
                 <label className="form-label">תאריך נדרש *</label>
                 <input 
+                  id="deliveryDateInput"
                   className="input" 
                   type={isDateFocused ? "date" : "text"} 
                   onFocus={() => setIsDateFocused(true)}
                   onBlur={() => setIsDateFocused(false)}
                   value={isDateFocused ? deliveryDate : (deliveryDate ? deliveryDate.split('-').reverse().join('/') : '')}
                   onChange={e => setDeliveryDate(e.target.value)} 
+                  onKeyDown={e => handleKeyDown(e, 'cartNumberInput')}
                 />
               </div>
               <div className="form-group">
                 <label className="form-label">מספר עגלה *</label>
-                <input className="input" value={cartNumber} onChange={e => setCartNumber(e.target.value)} placeholder="מס' עגלה" />
+                <input id="cartNumberInput" className="input" value={cartNumber} onChange={e => setCartNumber(e.target.value)} onKeyDown={e => handleKeyDown(e, 'orderNumberInput')} placeholder="מס' עגלה" />
               </div>
               <div className="form-group">
                 <label className="form-label">מספר הזמנה</label>
-                <input className="input" value={orderNumber} onChange={e => setOrderNumber(e.target.value)} placeholder="אופציונלי" />
+                <input id="orderNumberInput" className="input" value={orderNumber} onChange={e => setOrderNumber(e.target.value)} onKeyDown={e => handleKeyDown(e, 'lineNumberInput')} placeholder="אופציונלי" />
               </div>
               <div className="form-group">
                 <label className="form-label">מספר שורה</label>
-                <input className="input" value={lineNumber} onChange={e => setLineNumber(e.target.value)} placeholder="אופציונלי" />
+                <input id="lineNumberInput" className="input" value={lineNumber} onChange={e => setLineNumber(e.target.value)} onKeyDown={e => handleKeyDown(e, 'prodOrderNumberInput')} placeholder="אופציונלי" />
               </div>
               <div className="form-group">
                 <label className="form-label">הזמנת יצור</label>
-                <input className="input" value={prodOrderNumber} onChange={e => setProdOrderNumber(e.target.value)} placeholder="אופציונלי" />
+                <input id="prodOrderNumberInput" className="input" value={prodOrderNumber} onChange={e => setProdOrderNumber(e.target.value)} onKeyDown={e => handleKeyDown(e, 'prodLineNumberInput')} placeholder="אופציונלי" />
               </div>
               <div className="form-group">
                 <label className="form-label">שורת יצור</label>
-                <input className="input" value={prodLineNumber} onChange={e => setProdLineNumber(e.target.value)} placeholder="אופציונלי" />
+                <input id="prodLineNumberInput" className="input" value={prodLineNumber} onChange={e => setProdLineNumber(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('searchItemInput')?.focus(); } }} placeholder="אופציונלי" />
               </div>
             </div>
           </div>
@@ -469,7 +531,7 @@ export default function NewOrderPage() {
         {/* Filters and Search */}
         <div className="card" style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ width: '100%' }}>
-            <input className="input" style={{ width: '100%' }} placeholder="חיפוש חופשי (לפי שם פריט בלבד)..." value={search} onChange={e => setSearch(e.target.value)} />
+            <input id="searchItemInput" className="input" style={{ width: '100%' }} placeholder="חיפוש חופשי (לפי שם פריט בלבד)..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '110px' }}>
