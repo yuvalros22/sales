@@ -63,6 +63,7 @@ model Order {
   status          String      @default("pending")
   deliveryDate    DateTime?   // [NEW] תאריך יעד לקבלה
   isEntered       Boolean     @default(false) // [NEW] האם הוקלד למעלה
+  notes           String?     // [NEW] הערות להזמנה
   createdAt       DateTime    @default(now())
   items           OrderItem[]
 }
@@ -92,4 +93,17 @@ model GalleryImage {
   filename  String   @unique
   data      String   // Base64 string of the image
   createdAt DateTime @default(now())
+}
+
+model CartReservation {
+  id              String   @id @default(cuid())
+  userId          String
+  inventoryItemId String
+  packages        Int
+  units           Int
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([userId, inventoryItemId])
 }

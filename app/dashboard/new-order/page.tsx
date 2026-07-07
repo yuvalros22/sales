@@ -148,6 +148,7 @@ export default function NewOrderPage() {
   const [lineNumber, setLineNumber] = useState('');
   const [prodOrderNumber, setProdOrderNumber] = useState('');
   const [prodLineNumber, setProdLineNumber] = useState('');
+  const [notes, setNotes] = useState('');
   const [deliveryDate, setDeliveryDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [isDateFocused, setIsDateFocused] = useState(false);
 
@@ -222,7 +223,17 @@ export default function NewOrderPage() {
       setCustomers(custData || []);
       setLoading(false);
     });
-  }, []);
+
+    // Poll inventory every 15 seconds to keep available quantities live for others
+    const interval = setInterval(() => {
+      fetch('/api/inventory')
+        .then(r => r.json())
+        .then(data => setInventory(data))
+        .catch(console.error);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [session, role]);
 
   const inStockInventory = useMemo(() => {
     return inventory.filter(i => Math.floor(i.quantity / i.packageSize) >= 1 && i.potSize !== '136');
@@ -306,7 +317,7 @@ export default function NewOrderPage() {
     return `עציץ ${p}`;
   }
 
-  function updateCart(item: InventoryItem, deltaPackages: number, absolutePackages?: number) {
+  async function updateCart(item: InventoryItem, deltaPackages: number, absolutePackages?: number) {
     setCart(prev => {
       const existing = prev.find(c => c.item.id === item.id);
       const currentPackages = existing ? existing.packages : 0;
@@ -315,19 +326,49 @@ export default function NewOrderPage() {
         newPackages = absolutePackages;
       }
       
-      if (newPackages <= 0) {
-        return prev.filter(c => c.item.id !== item.id);
-      }
+      if (newPackages < 0) newPackages = 0;
       
       if (role !== 'customer' || true) {
         const availablePackages = Math.floor(item.quantity / item.packageSize);
         if (newPackages > availablePackages) {
-          setErrorMsg(`אין מספיק מלאי מ-${item.itemName} ${item.modelName}. זמין: ${availablePackages} אריזות`);
+          setErrorMsg(`אין מספיק מלאי עבור ${item.itemName} ${item.modelName}. זמין: ${availablePackages} אריזות`);
           setTimeout(() => setErrorMsg(''), 3000);
           return prev;
         }
       }
 
+      // Sync with server in background
+      fetch('/api/cart/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inventoryItemId: item.id,
+          packages: newPackages,
+          units: newPackages * item.packageSize
+        })
+      }).then(async res => {
+        const data = await res.json();
+        if (!res.ok) {
+          setErrorMsg(data.error || 'שגיאה בשמירת המלאי לעגלה');
+          setTimeout(() => setErrorMsg(''), 3000);
+          // Revert on server error by re-fetching or just reverting to currentPackages
+          setCart(current => {
+            if (currentPackages === 0) return current.filter(c => c.item.id !== item.id);
+            return current.map(c => c.item.id === item.id ? { ...c, packages: currentPackages } : c);
+          });
+        }
+      }).catch(e => {
+        setErrorMsg('שגיאת תקשורת בשמירת מלאי');
+        setTimeout(() => setErrorMsg(''), 3000);
+        setCart(current => {
+          if (currentPackages === 0) return current.filter(c => c.item.id !== item.id);
+          return current.map(c => c.item.id === item.id ? { ...c, packages: currentPackages } : c);
+        });
+      });
+
+      if (newPackages === 0) {
+        return prev.filter(c => c.item.id !== item.id);
+      }
       if (existing) {
         return prev.map(c => c.item.id === item.id ? { ...c, packages: newPackages } : c);
       }
@@ -368,6 +409,7 @@ export default function NewOrderPage() {
         prodOrderNumber,
         prodLineNumber,
         deliveryDate,
+        notes,
         items: cart.map(c => ({
           itemCode: c.item.itemCode,
           itemName: c.item.itemName,
@@ -383,11 +425,11 @@ export default function NewOrderPage() {
 
     const data = await res.json();
     if (res.ok) {
-      setSuccessMsg('הזמנתך בוצעה, התחלנו לארוז ✓');
+      setSuccessMsg('ההזמנה נשמרה בהצלחה!');
       setCart([]);
       setMobileCartOpen(false);
       setCustomerName(''); setCartNumber(''); setOrderNumber('');
-      setLineNumber(''); setProdOrderNumber(''); setProdLineNumber(''); setDeliveryDate(new Date().toISOString().split('T')[0]);
+      setLineNumber(''); setProdOrderNumber(''); setProdLineNumber(''); setNotes(''); setDeliveryDate(new Date().toISOString().split('T')[0]);
       fetch('/api/inventory').then(r => r.json()).then(setInventory);
       setTimeout(() => setSuccessMsg(''), 5000);
     } else {
@@ -521,9 +563,20 @@ export default function NewOrderPage() {
                 <input id="prodOrderNumberInput" className="input" value={prodOrderNumber} onChange={e => setProdOrderNumber(e.target.value)} onKeyDown={e => handleKeyDown(e, 'prodLineNumberInput')} placeholder="אופציונלי" />
               </div>
               <div className="form-group">
-                <label className="form-label">שורת יצור</label>
-                <input id="prodLineNumberInput" className="input" value={prodLineNumber} onChange={e => setProdLineNumber(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('searchItemInput')?.focus(); } }} placeholder="אופציונלי" />
+                <label className="form-label">שורת ייצור</label>
+                <input id="prodLineNumberInput" className="input" value={prodLineNumber} onChange={e => setProdLineNumber(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('notesInput')?.focus(); } }} placeholder="הקלד כאן..." />
               </div>
+            </div>
+            <div className="form-group" style={{ marginTop: '10px' }}>
+              <label className="form-label">הערות להזמנה</label>
+              <textarea 
+                id="notesInput" 
+                className="input" 
+                value={notes} 
+                onChange={e => setNotes(e.target.value)} 
+                placeholder="הערות מיוחדות, הנחיות מיוחדות..." 
+                style={{ minHeight: '60px', width: '100%', resize: 'vertical' }} 
+              />
             </div>
           </div>
         )}
@@ -607,10 +660,13 @@ export default function NewOrderPage() {
                 {/* Stock & Actions */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                   {role !== 'customer' && (
-                    <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                    <div style={{ textAlign: 'center', minWidth: '80px' }}>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>זמין</div>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: isOutOfStock ? 'var(--red)' : 'var(--green)' }}>
-                        {availablePackages}
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: (availablePackages - packagesInCart) <= 0 ? 'var(--red)' : 'var(--green)' }}>
+                        {Math.max(0, availablePackages - packagesInCart)}
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '6px', fontWeight: 'normal' }}>
+                          ({Math.max(0, availablePackages - packagesInCart) * item.packageSize} יח')
+                        </span>
                       </div>
                     </div>
                   )}
