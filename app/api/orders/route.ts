@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   const userId = (session as any)?.userId;
-  const { customerName, customerCode, agentName, cartNumber, orderNumber, lineNumber, prodOrderNumber, prodLineNumber, items, deliveryDate } = await req.json();
+  const { customerName, customerCode, agentName, cartNumber, orderNumber, lineNumber, prodOrderNumber, prodLineNumber, items, deliveryDate, notes } = await req.json();
   
   // Pre-fetch all relevant inventory items in ONE query
   const inventoryItems = await prisma.inventoryItem.findMany({
@@ -47,6 +47,21 @@ export async function POST(req: NextRequest) {
       }))
     }
   });
+
+  // Fetch all active reservations for the items in the order
+  const activeReservations = await prisma.cartReservation.findMany({
+    where: {
+      inventoryItemId: { in: inventoryItems.map(i => i.id) },
+      userId: { not: userId },
+      expiresAt: { gt: new Date() }
+    }
+  });
+
+  const reservedByOthersMap = new Map<string, number>();
+  for (const res of activeReservations) {
+    const current = reservedByOthersMap.get(res.inventoryItemId) || 0;
+    reservedByOthersMap.set(res.inventoryItemId, current + res.units);
+  }
 
   // Validate stock locally
   for (const item of items) {
@@ -61,9 +76,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `פריט ${item.itemName} לא נמצא במלאי` }, { status: 400 });
     }
     
-    if (inv.quantity < item.packages) {
+    const reservedByOthers = reservedByOthersMap.get(inv.id) || 0;
+    const availableUnits = inv.quantity - reservedByOthers;
+    const requestedUnits = item.packages * item.packageSize;
+
+    if (availableUnits < requestedUnits) {
+      const availablePackages = Math.floor(availableUnits / item.packageSize);
       return NextResponse.json({ 
-        error: `אין מספיק מלאי עבור ${item.itemName}. זמין: ${inv.quantity} אריזות, נדרש: ${item.packages} אריזות` 
+        error: `אין מספיק מלאי פנוי עבור ${item.itemName}. זמין: ${availablePackages} אריזות, נדרש: ${item.packages} אריזות` 
       }, { status: 400 });
     }
   }
@@ -83,6 +103,7 @@ export async function POST(req: NextRequest) {
       prodOrderNumber: prodOrderNumber || null,
       prodLineNumber: prodLineNumber || null,
       deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
+      notes: notes || null,
       items: {
         create: items.map((item: any) => ({
           itemCode: item.itemCode,
@@ -111,6 +132,11 @@ export async function POST(req: NextRequest) {
       data: { quantity: { decrement: item.packages * item.packageSize } }
     }));
   }
+
+  // Clear all reservations for this user since they checked out
+  operations.push(prisma.cartReservation.deleteMany({
+    where: { userId }
+  }));
 
   const results = await prisma.$transaction(operations);
   const newOrder = results[0];
