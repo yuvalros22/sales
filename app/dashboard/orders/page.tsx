@@ -17,6 +17,15 @@ export default function OrdersPage() {
   const [showStatus, setShowStatus] = useState<'all' | 'untyped'>('all');
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
 
+  function handleSort(column: 'createdAt' | 'customerName' | 'cartNumber' | 'agentName') {
+    if (sortBy === column) {
+      setSortDesc(!sortDesc);
+    } else {
+      setSortBy(column);
+      setSortDesc(false);
+    }
+  }
+
   function handleSelectAll(displayedOrdersList: any[]) {
     if (selectedOrders.size === displayedOrdersList.length && displayedOrdersList.length > 0) {
       setSelectedOrders(new Set());
