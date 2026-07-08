@@ -66,6 +66,10 @@ model Order {
   notes           String?     // [NEW] הערות להזמנה
   createdAt       DateTime    @default(now())
   items           OrderItem[]
+
+  @@index([createdAt])
+  @@index([isEntered])
+  @@index([userId])
 }
 
 model OrderItem {
@@ -81,6 +85,8 @@ model OrderItem {
   packages    Int
   units       Int
   packageSize Int
+
+  @@index([orderId])
 }
 
 model AppConfig {

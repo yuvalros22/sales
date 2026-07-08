@@ -11,7 +11,11 @@ export async function GET() {
     orderBy: { itemName: 'asc' }
   });
   
-  return NextResponse.json(items);
+  return NextResponse.json(items, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+    },
+  });
 }
 
 export async function POST(req: NextRequest) {
