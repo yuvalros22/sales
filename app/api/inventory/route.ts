@@ -86,24 +86,28 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    const allInventory = await prisma.inventoryItem.findMany();
+    
+    const deductions = new Map<string, number>();
     for (const po of pendingOrderItems) {
-      const inventoryItem = await prisma.inventoryItem.findFirst({
-        where: {
-          itemCode: po.itemCode,
-          modelCode: po.modelCode,
-          quality: po.quality,
-          bloomPct: po.bloomPct
-        }
-      });
+      const key = `${po.itemCode}-${po.modelCode}-${po.quality}-${po.bloomPct}`;
+      deductions.set(key, (deductions.get(key) || 0) + po.units);
+    }
 
-      if (inventoryItem) {
-        await prisma.inventoryItem.update({
-          where: { id: inventoryItem.id },
-          data: {
-            quantity: inventoryItem.quantity - po.units
-          }
-        });
+    const updates = [];
+    for (const item of allInventory) {
+      const key = `${item.itemCode}-${item.modelCode}-${item.quality}-${item.bloomPct}`;
+      const toDeduct = deductions.get(key);
+      if (toDeduct && toDeduct > 0) {
+        updates.push(prisma.inventoryItem.update({
+          where: { id: item.id },
+          data: { quantity: item.quantity - toDeduct }
+        }));
       }
+    }
+
+    if (updates.length > 0) {
+      await prisma.$transaction(updates);
     }
 
     return NextResponse.json({ ok: true, count: items.length });

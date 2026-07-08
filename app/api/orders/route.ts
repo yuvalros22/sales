@@ -3,15 +3,32 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   const role = (session.user as any)?.role;
   const userId = (session as any)?.userId;
+
+  const url = new URL(req.url);
+  const showAllHistory = url.searchParams.get('allHistory') === 'true';
+
+  let dateFilter = {};
+  if (!showAllHistory) {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    dateFilter = {
+      OR: [
+        { isEntered: false }, // Always fetch active (unentered) orders
+        { createdAt: { gte: thirtyDaysAgo } } // Fetch entered orders up to 30 days ago
+      ]
+    };
+  }
+
+  const whereClause: any = role === 'customer' ? { userId, ...dateFilter } : { ...dateFilter };
   
   const orders = await prisma.order.findMany({
-    where: role === 'customer' ? { userId } : {},
+    where: whereClause,
     include: {
       user: {
         select: { name: true, username: true, role: true }

@@ -47,10 +47,10 @@ export default function OrdersPage() {
     window.open('/print/orders', '_blank');
   }
 
-  // Tabs and History
   const [tab, setTab] = useState<'current' | 'history'>('current');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   // Cart number edit state
   const [editingCartId, setEditingCartId] = useState<string | null>(null);
@@ -58,10 +58,11 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [showAllHistory]);
 
   async function fetchOrders() {
-    const res = await fetch('/api/orders');
+    setLoading(true);
+    const res = await fetch(`/api/orders${showAllHistory ? '?allHistory=true' : ''}`);
     const data = await res.json();
     setOrders(data);
     setLoading(false);
@@ -510,6 +511,13 @@ export default function OrdersPage() {
               )}
             </div>
           ))}
+          {tab === 'history' && !showAllHistory && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+              <button className="btn-secondary" onClick={() => setShowAllHistory(true)}>
+                טען היסטוריה ישנה יותר...
+              </button>
+            </div>
+          )}
           </div>
         </div>
       )}
