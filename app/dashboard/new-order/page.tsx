@@ -58,14 +58,14 @@ function MultiSelectDropdown({ values, onChange, options, placeholder }: { value
   }
 
   return (
-    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+    <div ref={ref} style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div 
         className="input" 
-        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%', minHeight: '42px' }}
         onClick={() => setOpen(!open)}
       >
-        <span style={{ color: values.length > 0 ? 'inherit' : 'var(--text-muted)' }}>{selectedLabel}</span>
-        <span style={{ fontSize: '10px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'var(--text-muted)' }}>▼</span>
+        <span style={{ color: values.length > 0 ? 'inherit' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingLeft: '8px' }}>{selectedLabel}</span>
+        <span style={{ fontSize: '10px', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'var(--text-muted)', flexShrink: 0 }}>▼</span>
       </div>
       {open && (
         <div style={{
@@ -133,7 +133,19 @@ export default function NewOrderPage() {
   const [modelFilter, setModelFilter] = useState<string[]>([]);
   const [potSizeFilter, setPotSizeFilter] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
+  const [bloomFilter, setBloomFilter] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<'quality' | 'bloom' | 'name'>('quality');
+  const [sortDesc, setSortDesc] = useState<boolean>(false);
   const [storeOpen, setStoreOpen] = useState(true);
+
+  const handleSort = (column: 'quality' | 'bloom' | 'name') => {
+    if (sortBy === column) {
+      setSortDesc(!sortDesc);
+    } else {
+      setSortBy(column);
+      setSortDesc(false);
+    }
+  };
   
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -240,11 +252,12 @@ export default function NewOrderPage() {
   }, [inventory]);
 
   const filteredItems = useMemo(() => {
-    return inStockInventory.filter(item => {
+    const filtered = inStockInventory.filter(item => {
       if (qualityFilter.length > 0 && !qualityFilter.includes(item.quality)) return false;
       if (modelFilter.length > 0 && !modelFilter.includes(item.modelCode)) return false;
       if (potSizeFilter.length > 0 && !potSizeFilter.includes(item.potSize || '')) return false;
       if (categoryFilter.length > 0 && !categoryFilter.includes(item.category || '')) return false;
+      if (bloomFilter.length > 0 && !bloomFilter.includes(item.bloomPct)) return false;
       if (search) {
         const term = search.toLowerCase();
         if (!item.itemName.toLowerCase().includes(term)) {
@@ -253,35 +266,71 @@ export default function NewOrderPage() {
       }
       return true;
     });
-  }, [inStockInventory, search, qualityFilter, modelFilter, potSizeFilter, categoryFilter]);
+
+    return filtered.sort((a, b) => {
+      const getQualityNum = (q: string) => {
+        const matches = q.match(/\d+/g);
+        return matches ? parseInt(matches[matches.length - 1], 10) : 999;
+      };
+
+      const qA = getQualityNum(a.quality);
+      const qB = getQualityNum(b.quality);
+      
+      const bA = parseFloat(a.bloomPct) || 0;
+      const bB = parseFloat(b.bloomPct) || 0;
+
+      const nA = a.itemName || '';
+      const nB = b.itemName || '';
+
+      let cmp = 0;
+      if (sortBy === 'quality') {
+        if (qA !== qB) cmp = qA - qB;
+        else if (bA !== bB) cmp = bB - bA;
+        else cmp = nA.localeCompare(nB);
+      } else if (sortBy === 'bloom') {
+        if (bA !== bB) cmp = bB - bA;
+        else if (qA !== qB) cmp = qA - qB;
+        else cmp = nA.localeCompare(nB);
+      } else {
+        const nameCmp = nA.localeCompare(nB);
+        if (nameCmp !== 0) cmp = nameCmp;
+        else if (qA !== qB) cmp = qA - qB;
+        else cmp = bB - bA;
+      }
+      return sortDesc ? -cmp : cmp;
+    });
+  }, [inStockInventory, search, qualityFilter, modelFilter, potSizeFilter, categoryFilter, bloomFilter, sortBy, sortDesc]);
 
   const categories = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
       if (qualityFilter.length > 0 && !qualityFilter.includes(item.quality)) return false;
       if (modelFilter.length > 0 && !modelFilter.includes(item.modelCode)) return false;
       if (potSizeFilter.length > 0 && !potSizeFilter.includes(item.potSize || '')) return false;
+      if (bloomFilter.length > 0 && !bloomFilter.includes(item.bloomPct)) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
     return Array.from(new Set(relevant.map(i => i.category).filter(Boolean) as string[])).sort();
-  }, [inStockInventory, search, qualityFilter, modelFilter, potSizeFilter]);
+  }, [inStockInventory, search, qualityFilter, modelFilter, potSizeFilter, bloomFilter]);
 
   const potSizes = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
       if (qualityFilter.length > 0 && !qualityFilter.includes(item.quality)) return false;
       if (modelFilter.length > 0 && !modelFilter.includes(item.modelCode)) return false;
       if (categoryFilter.length > 0 && !categoryFilter.includes(item.category || '')) return false;
+      if (bloomFilter.length > 0 && !bloomFilter.includes(item.bloomPct)) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
     return Array.from(new Set(relevant.map(i => i.potSize).filter(Boolean) as string[])).sort((a, b) => parseInt(a) - parseInt(b));
-  }, [inStockInventory, search, qualityFilter, modelFilter, categoryFilter]);
+  }, [inStockInventory, search, qualityFilter, modelFilter, categoryFilter, bloomFilter]);
 
   const qualities = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
       if (modelFilter.length > 0 && !modelFilter.includes(item.modelCode)) return false;
       if (potSizeFilter.length > 0 && !potSizeFilter.includes(item.potSize || '')) return false;
       if (categoryFilter.length > 0 && !categoryFilter.includes(item.category || '')) return false;
+      if (bloomFilter.length > 0 && !bloomFilter.includes(item.bloomPct)) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
@@ -295,20 +344,35 @@ export default function NewOrderPage() {
       if (numA !== numB) return numA - numB;
       return a.localeCompare(b);
     });
-  }, [inStockInventory, search, modelFilter, potSizeFilter, categoryFilter]);
+  }, [inStockInventory, search, modelFilter, potSizeFilter, categoryFilter, bloomFilter]);
 
   const models = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
       if (qualityFilter.length > 0 && !qualityFilter.includes(item.quality)) return false;
       if (potSizeFilter.length > 0 && !potSizeFilter.includes(item.potSize || '')) return false;
       if (categoryFilter.length > 0 && !categoryFilter.includes(item.category || '')) return false;
+      if (bloomFilter.length > 0 && !bloomFilter.includes(item.bloomPct)) return false;
       if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
     const map = new Map<string, string>();
     relevant.forEach(i => map.set(i.modelCode, i.modelName));
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-  }, [inStockInventory, search, qualityFilter, potSizeFilter, categoryFilter]);
+  }, [inStockInventory, search, qualityFilter, potSizeFilter, categoryFilter, bloomFilter]);
+
+  const blooms = useMemo(() => {
+    const relevant = inStockInventory.filter(item => {
+      if (qualityFilter.length > 0 && !qualityFilter.includes(item.quality)) return false;
+      if (modelFilter.length > 0 && !modelFilter.includes(item.modelCode)) return false;
+      if (potSizeFilter.length > 0 && !potSizeFilter.includes(item.potSize || '')) return false;
+      if (categoryFilter.length > 0 && !categoryFilter.includes(item.category || '')) return false;
+      if (search && !item.itemName.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+    return Array.from(new Set(relevant.map(i => i.bloomPct))).sort((a, b) => {
+      return (parseFloat(a) || 0) - (parseFloat(b) || 0);
+    });
+  }, [inStockInventory, search, qualityFilter, modelFilter, potSizeFilter, categoryFilter]);
 
   function formatPotSize(p: string) {
     if (p === '1') return 'חומר ריבוי';
@@ -619,48 +683,94 @@ export default function NewOrderPage() {
                 placeholder="כל האיכויות" 
               />
             </div>
+            <div style={{ flex: 1, minWidth: '110px' }}>
+              <MultiSelectDropdown 
+                values={bloomFilter} 
+                onChange={setBloomFilter} 
+                options={blooms.map(b => ({ label: `${b}% פריחה`, value: b }))} 
+                placeholder="כל הפריחות" 
+              />
+            </div>
           </div>
         </div>
 
         {/* Catalog List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {filteredItems.map(item => {
-            const cartItem = cart.find(c => c.item.id === item.id);
-            const packagesInCart = cartItem ? cartItem.packages : 0;
-            const availablePackages = Math.floor(item.quantity / item.packageSize);
-            const isOutOfStock = availablePackages <= 0;
+        <div style={{ overflowX: 'auto', paddingBottom: '16px', margin: '0 -16px', padding: '0 16px' }}>
+          <div style={{ minWidth: '700px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Table Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '0 12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', userSelect: 'none' }}>
+               <div style={{ width: '48px', flexShrink: 0 }}></div>
+               <div style={{ flex: 1, minWidth: '150px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('name')}>
+                 פריט ודגם {sortBy === 'name' ? (sortDesc ? '▲' : '▼') : <span style={{opacity: 0.3}}>▼</span>}
+               </div>
+               <div style={{ width: '80px', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('quality')}>
+                 איכות {sortBy === 'quality' ? (sortDesc ? '▲' : '▼') : <span style={{opacity: 0.3}}>▼</span>}
+               </div>
+               <div style={{ width: '1px', flexShrink: 0 }}></div>
+               <div style={{ width: '70px', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('bloom')}>
+                 פריחה {sortBy === 'bloom' ? (sortDesc ? '▲' : '▼') : <span style={{opacity: 0.3}}>▼</span>}
+               </div>
+               <div style={{ width: '1px', flexShrink: 0 }}></div>
+               <div style={{ width: '100px', flexShrink: 0 }}>אריזה / עציץ</div>
+               {role !== 'customer' && <div style={{ width: '90px', flexShrink: 0, textAlign: 'center' }}>מלאי זמין</div>}
+               <div style={{ width: '110px', flexShrink: 0, textAlign: 'center' }}>כמות להזמנה</div>
+            </div>
 
-            return (
-              <div key={item.id} className="card" style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                {/* Image */}
-                <div style={{ width: '48px', height: '48px', borderRadius: '6px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                  <img 
-                    src={`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`} 
-                    alt={item.itemName} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} 
-                    onClick={() => setZoomedImage(`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`)}
-                    onError={(e) => { e.currentTarget.style.display = 'none'; if(e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'; }} 
-                  />
-                  <div style={{ width: '100%', height: '100%', display: 'none', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🌱</div>
-                </div>
+            {filteredItems.map(item => {
+              const cartItem = cart.find(c => c.item.id === item.id);
+              const packagesInCart = cartItem ? cartItem.packages : 0;
+              const availablePackages = Math.floor(item.quantity / item.packageSize);
+              const isOutOfStock = availablePackages <= 0;
 
-                {/* Info */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {item.itemName} <span className="badge badge-amber" style={{ fontSize: '12px' }}>{item.modelName}</span>
+              return (
+                <div key={item.id} className="card" style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  {/* Image */}
+                  <div style={{ width: '48px', height: '48px', borderRadius: '6px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                    <img 
+                      src={`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`} 
+                      alt={item.itemName} 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} 
+                      onClick={() => setZoomedImage(`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`)}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; if(e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'; }} 
+                    />
+                    <div style={{ width: '100%', height: '100%', display: 'none', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🌱</div>
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', gap: '12px' }}>
-                    <span>איכות: <strong style={{ color: 'var(--accent-light)' }}>{item.quality}</strong></span>
-                    <span>פריחה: <strong>{item.bloomPct}%</strong></span>
-                    <span>אריזה: <strong>{item.packageSize}</strong> יח'</span>
-                    {item.potSize && <span><strong>{formatPotSize(item.potSize)}</strong></span>}
-                  </div>
-                </div>
 
-                {/* Stock & Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  {/* Item Name & Model */}
+                  <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+                    <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)' }}>
+                      {item.itemName}
+                    </div>
+                    <div>
+                      <span className="badge" style={{ background: '#000', color: '#fff', fontSize: '15px', padding: '4px 10px', borderRadius: '12px' }}>
+                        {item.modelName}
+                      </span>
+                    </div>
+                  </div>
+                    
+                  {/* Quality */}
+                  <div style={{ width: '80px', flexShrink: 0, fontSize: '15px', fontWeight: 800, color: '#000' }}>
+                    {item.quality}
+                  </div>
+
+                  <div style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
+
+                  {/* Bloom */}
+                  <div style={{ width: '70px', flexShrink: 0, fontSize: '15px', fontWeight: 800, color: '#000' }}>
+                    {item.bloomPct}%
+                  </div>
+
+                  <div style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
+
+                  {/* Packaging & Pot Size */}
+                  <div style={{ width: '100px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    <div>אריזה: <strong>{item.packageSize}</strong> יח'</div>
+                    {item.potSize && <div>{formatPotSize(item.potSize)}</div>}
+                  </div>
+
+                  {/* Stock */}
                   {role !== 'customer' && (
-                    <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                    <div style={{ textAlign: 'center', width: '90px', flexShrink: 0 }}>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>זמין</div>
                       <div style={{ fontSize: '14px', fontWeight: 700, color: (availablePackages - packagesInCart) <= 0 ? 'var(--red)' : 'var(--green)' }}>
                         {Math.max(0, availablePackages - packagesInCart)}
@@ -671,40 +781,43 @@ export default function NewOrderPage() {
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-base)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                    <button 
-                      onClick={() => updateCart(item, -1)}
-                      style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: packagesInCart > 0 ? 'var(--red)' : 'var(--text-muted)', fontSize: '18px', fontWeight: 800 }}
-                      disabled={packagesInCart === 0}
-                    >-</button>
-                    <input 
-                      type="text" 
-                      inputMode="numeric"
-                      value={packagesInCart || ''} 
-                      onChange={e => {
-                        let val = parseInt(e.target.value);
-                        if (isNaN(val) || val < 0) val = 0;
-                        updateCart(item, 0, val);
-                      }}
-                      style={{ width: '40px', textAlign: 'center', fontWeight: 800, fontSize: '15px', background: 'transparent', border: 'none', outline: 'none', color: 'inherit' }}
-                      placeholder="0"
-                    />
-                    <button 
-                      onClick={() => updateCart(item, 1)}
-                      style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: isOutOfStock || packagesInCart >= availablePackages ? 'var(--text-muted)' : 'var(--green)', fontSize: '18px', fontWeight: 800 }}
-                      disabled={isOutOfStock || packagesInCart >= availablePackages}
-                    >+</button>
+                  {/* Actions */}
+                  <div style={{ width: '110px', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-base)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                      <button 
+                        onClick={() => updateCart(item, -1)}
+                        style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: packagesInCart > 0 ? 'var(--red)' : 'var(--text-muted)', fontSize: '18px', fontWeight: 800 }}
+                        disabled={packagesInCart === 0}
+                      >-</button>
+                      <input 
+                        type="text" 
+                        inputMode="numeric"
+                        value={packagesInCart || ''} 
+                        onChange={e => {
+                          let val = parseInt(e.target.value);
+                          if (isNaN(val) || val < 0) val = 0;
+                          updateCart(item, 0, val);
+                        }}
+                        style={{ width: '40px', textAlign: 'center', fontWeight: 800, fontSize: '15px', background: 'transparent', border: 'none', outline: 'none', color: 'inherit' }}
+                        placeholder="0"
+                      />
+                      <button 
+                        onClick={() => updateCart(item, 1)}
+                        style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: isOutOfStock || packagesInCart >= availablePackages ? 'var(--text-muted)' : 'var(--green)', fontSize: '18px', fontWeight: 800 }}
+                        disabled={isOutOfStock || packagesInCart >= availablePackages}
+                      >+</button>
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+            
+            {filteredItems.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                לא נמצאו פריטים במלאי התואמים לסינון.
               </div>
-            );
-          })}
-          
-          {filteredItems.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-              לא נמצאו פריטים במלאי התואמים לסינון.
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {errorMsg && (

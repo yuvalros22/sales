@@ -4,14 +4,27 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 import * as XLSX from 'xlsx';
 
-export async function GET() {
+export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
   if (!session || !['admin','agent'].includes(role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  let orderIds: string[] = [];
+  try {
+    const body = await req.json();
+    if (body.orderIds && Array.isArray(body.orderIds)) {
+      orderIds = body.orderIds;
+    }
+  } catch (e) {
+    // Ignore error if body is empty
+  }
   
+  const whereClause = orderIds.length > 0 ? { id: { in: orderIds } } : {};
+
   const orders = await prisma.order.findMany({
+    where: whereClause,
     include: { user: true, items: true },
     orderBy: { createdAt: 'desc' }
   });
