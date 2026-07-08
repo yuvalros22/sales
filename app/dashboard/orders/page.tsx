@@ -11,6 +11,33 @@ export default function OrdersPage() {
   const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
   
+  // Sort & Filter
+  const [sortBy, setSortBy] = useState<'createdAt' | 'customerName' | 'cartNumber' | 'agentName'>('createdAt');
+  const [sortDesc, setSortDesc] = useState<boolean>(true);
+  const [showStatus, setShowStatus] = useState<'all' | 'untyped'>('all');
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+
+  function handleSelectAll(displayedOrdersList: any[]) {
+    if (selectedOrders.size === displayedOrdersList.length && displayedOrdersList.length > 0) {
+      setSelectedOrders(new Set());
+    } else {
+      setSelectedOrders(new Set(displayedOrdersList.map((o: any) => o.id)));
+    }
+  }
+
+  function toggleOrderSelection(id: string) {
+    const newSet = new Set(selectedOrders);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedOrders(newSet);
+  }
+
+  function bulkPrint() {
+    if (selectedOrders.size === 0) return;
+    sessionStorage.setItem('printOrderIds', JSON.stringify(Array.from(selectedOrders)));
+    window.open('/print/orders', '_blank');
+  }
+
   // Tabs and History
   const [tab, setTab] = useState<'current' | 'history'>('current');
   const [fromDate, setFromDate] = useState('');
@@ -33,7 +60,12 @@ export default function OrdersPage() {
 
   async function exportExcel() {
     setExporting(true);
-    const res = await fetch('/api/orders/export');
+    const orderIds = Array.from(selectedOrders);
+    const res = await fetch('/api/orders/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderIds })
+    });
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -80,6 +112,11 @@ export default function OrdersPage() {
       const orderDate = new Date(o.createdAt);
       const isToday = orderDate >= todayStart;
 
+      // untyped filter
+      if (showStatus === 'untyped' && o.isEntered) {
+        return false;
+      }
+
       if (tab === 'current') {
         // Today OR (Not Today AND NOT Entered)
         return isToday || (!isToday && !o.isEntered);
@@ -109,15 +146,29 @@ export default function OrdersPage() {
       );
     }
 
-    // Sort by Customer Name / User Name ascending
+    // Sort
     filtered.sort((a, b) => {
-      const nameA = a.customerName || a.user_name || '';
-      const nameB = b.customerName || b.user_name || '';
-      return nameA.localeCompare(nameB);
+      let cmp = 0;
+      if (sortBy === 'createdAt') {
+        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      } else if (sortBy === 'customerName') {
+        const nameA = a.customerName || a.user_name || '';
+        const nameB = b.customerName || b.user_name || '';
+        cmp = nameA.localeCompare(nameB);
+      } else if (sortBy === 'cartNumber') {
+        const cA = a.cartNumber || '';
+        const cB = b.cartNumber || '';
+        cmp = cA.localeCompare(cB);
+      } else if (sortBy === 'agentName') {
+        const agA = a.user_name || '';
+        const agB = b.user_name || '';
+        cmp = agA.localeCompare(agB);
+      }
+      return sortDesc ? -cmp : cmp;
     });
 
     return filtered;
-  }, [orders, tab, search, fromDate, toDate]);
+  }, [orders, tab, search, fromDate, toDate, sortBy, sortDesc, showStatus]);
 
   if (loading) return <div style={{ color: 'var(--text-muted)', padding: '40px' }}>טוען...</div>;
 
@@ -127,12 +178,42 @@ export default function OrdersPage() {
         <h1 style={{ fontSize: '20px', fontWeight: 800 }}>
           {role === 'customer' ? 'ההזמנות שלי' : 'ניהול הזמנות'}
         </h1>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input className="input" style={{ maxWidth: '220px' }} placeholder="חיפוש חופשי..." value={search} onChange={e => setSearch(e.target.value)} />
-          {(role === 'admin' || role === 'agent') && (
-            <button className="btn-primary" onClick={exportExcel} disabled={exporting}>
-              {exporting ? 'מייצא...' : '⬇️ ייצוא לאקסל'}
-            </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
+          <input className="input" style={{ minWidth: '150px', flex: 1, maxWidth: '200px' }} placeholder="חיפוש חופשי..." value={search} onChange={e => setSearch(e.target.value)} />
+          {/* Filter Status (Toggle Switch) */}
+          <div 
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', background: 'var(--bg-panel)', padding: '0 16px', height: '42px', borderRadius: '8px', border: '1px solid var(--border)' }}
+            onClick={() => setShowStatus(showStatus === 'all' ? 'untyped' : 'all')}
+            title={showStatus === 'untyped' ? 'מציג רק הזמנות שלא הוקלדו' : 'מציג את כל ההזמנות'}
+          >
+            <span style={{ fontSize: '14px', fontWeight: 600, color: showStatus === 'untyped' ? 'var(--text-primary)' : 'var(--text-muted)', userSelect: 'none' }}>
+              הצג רק לא הוקלד
+            </span>
+            <div style={{
+              width: '44px', height: '24px', borderRadius: '12px',
+              background: showStatus === 'untyped' ? 'var(--green)' : 'var(--border)',
+              position: 'relative', transition: 'background 0.3s'
+            }}>
+              <div style={{
+                width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
+                position: 'absolute', top: '2px', right: showStatus === 'untyped' ? '22px' : '2px',
+                transition: 'right 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }} />
+            </div>
+          </div>
+
+          {(role === 'admin' || role === 'agent') && selectedOrders.size > 0 && (
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--bg-panel)', padding: '0 16px', borderRadius: '8px', height: '42px', border: '1px solid var(--border)' }}>
+              <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '14px', marginLeft: '8px' }}>
+                {selectedOrders.size} מסומנים
+              </span>
+              <button className="btn-secondary" style={{ height: '32px', fontSize: '13px', padding: '0 12px', margin: 0 }} onClick={bulkPrint}>
+                🖨️ הדפס
+              </button>
+              <button className="btn-primary" style={{ height: '32px', fontSize: '13px', padding: '0 12px', margin: 0 }} onClick={exportExcel} disabled={exporting}>
+                {exporting ? 'מייצא...' : '⬇️ אקסל'}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -196,48 +277,97 @@ export default function OrdersPage() {
           אין הזמנות תואמות
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {displayedOrders.map((order: any) => (
-            <div key={order.id} className="card" style={{ padding: '0', overflow: 'hidden' }}>
-              <div
-                style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}
-                onClick={() => setExpanded(expanded === order.id ? null : order.id)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    {new Date(order.createdAt).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}{' '}
-                    {new Date(order.createdAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+        <div style={{ overflowX: 'auto', paddingBottom: '16px', margin: '0 -16px', padding: '0 16px' }}>
+          <div style={{ minWidth: '900px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            
+            {/* Table Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '0 18px', fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', userSelect: 'none' }}>
+               <div style={{ width: '20px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                 <input 
+                   type="checkbox" 
+                   checked={displayedOrders.length > 0 && selectedOrders.size === displayedOrders.length}
+                   onChange={() => handleSelectAll(displayedOrders)}
+                   style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                   title="בחר הכל במסך זה"
+                 />
+               </div>
+               <div style={{ width: '120px', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('createdAt')}>
+                 זמן הכנסה {sortBy === 'createdAt' ? (sortDesc ? '▼' : '▲') : <span style={{opacity: 0.3}}>▼</span>}
+               </div>
+               <div style={{ flex: 1, minWidth: '150px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('customerName')}>
+                 שם לקוח {sortBy === 'customerName' ? (sortDesc ? '▼' : '▲') : <span style={{opacity: 0.3}}>▼</span>}
+               </div>
+               {role !== 'customer' && <div style={{ width: '100px', flexShrink: 0 }}>שם מזין</div>}
+               <div style={{ width: '100px', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('agentName')}>
+                 שם סוכן {sortBy === 'agentName' ? (sortDesc ? '▼' : '▲') : <span style={{opacity: 0.3}}>▼</span>}
+               </div>
+               <div style={{ width: '120px', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('cartNumber')}>
+                 עגלה / הזמנה {sortBy === 'cartNumber' ? (sortDesc ? '▼' : '▲') : <span style={{opacity: 0.3}}>▼</span>}
+               </div>
+               {role !== 'customer' && <div style={{ width: '180px', flexShrink: 0 }}>סטטוס</div>}
+               <div style={{ width: '120px', flexShrink: 0, textAlign: 'left' }}>סה״כ פריטים</div>
+            </div>
+
+            {displayedOrders.map((order: any) => (
+              <div key={order.id} className="card" style={{ padding: '0', overflow: 'hidden', border: selectedOrders.has(order.id) ? '2px solid var(--accent)' : '1px solid var(--border)' }}>
+                <div
+                  style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '16px', background: selectedOrders.has(order.id) ? 'var(--bg-base)' : 'transparent' }}
+                  onClick={() => setExpanded(expanded === order.id ? null : order.id)}
+                >
+                  <div style={{ width: '20px', flexShrink: 0, display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedOrders.has(order.id)}
+                      onChange={() => toggleOrderSelection(order.id)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
                   </div>
+                  <div style={{ width: '120px', flexShrink: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    <div style={{ fontWeight: 600 }}>{new Date(order.createdAt).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}</div>
+                    <div style={{ fontSize: '11px' }}>{new Date(order.createdAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: '150px' }}>
+                    {order.customerName ? (
+                      <span style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)' }}>{order.customerName}</span>
+                    ) : '-'}
+                  </div>
+
                   {role !== 'customer' && (
-                    <span className={`badge ${order.user_role === 'admin' ? 'badge-amber' : order.user_role === 'agent' ? 'badge-blue' : 'badge-green'}`}>
-                      {order.user_name}
-                    </span>
+                    <div style={{ width: '100px', flexShrink: 0 }}>
+                      <span className={`badge ${order.user_role === 'admin' ? 'badge-amber' : order.user_role === 'agent' ? 'badge-blue' : 'badge-green'}`}>
+                        {order.user_name}
+                      </span>
+                    </div>
                   )}
-                  {order.customerName && (
-                    <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>{order.customerName}</span>
-                  )}
-                  {order.agentName && (
-                    <span className="badge badge-purple" style={{ fontSize: '11px' }}>סוכן: {order.agentName}</span>
-                  )}
-                  {order.cartNumber && (
-                    <span className="badge badge-purple">עגלה: {order.cartNumber}</span>
-                  )}
-                  {order.orderNumber && (
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>הזמנה: {order.orderNumber}</span>
-                  )}
-                  
-                  {/* isEntered Checkbox and PDF Export */}
-                  {(role === 'admin' || role === 'agent') && (
-                    <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={order.isEntered} 
-                          onChange={() => toggleIsEntered(order.id, order.isEntered)}
-                          style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                        />
-                        <span style={{ fontSize: '11px', color: order.isEntered ? 'var(--green)' : 'var(--text-muted)' }}>
-                          {order.isEntered ? 'הוקלד למעלה' : 'לא הוקלד'}
+
+                  <div style={{ width: '100px', flexShrink: 0 }}>
+                    {order.agentName ? (
+                      <span className="badge badge-purple" style={{ fontSize: '12px' }}>{order.agentName}</span>
+                    ) : '-'}
+                  </div>
+
+                  <div style={{ width: '120px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                    {order.cartNumber && <span className="badge badge-purple" style={{ alignSelf: 'flex-start' }}>עגלה: {order.cartNumber}</span>}
+                    {order.orderNumber && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>הזמנה: {order.orderNumber}</span>}
+                    {!order.cartNumber && !order.orderNumber && '-'}
+                  </div>
+
+                  {/* Status & PDF */}
+                  {role !== 'customer' && (
+                    <div style={{ width: '180px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div onClick={(e) => { e.stopPropagation(); toggleIsEntered(order.id, order.isEntered); }} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ 
+                          width: '18px', height: '18px', borderRadius: '4px', 
+                          background: order.isEntered ? 'var(--green)' : 'transparent', 
+                          border: order.isEntered ? 'none' : '2px solid var(--text-muted)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontSize: '12px', fontWeight: 900
+                        }}>
+                          {order.isEntered && '✓'}
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: order.isEntered ? 700 : 500, color: order.isEntered ? 'var(--green)' : 'var(--text-muted)' }}>
+                          {order.isEntered ? 'הוקלד' : 'לא הוקלד'}
                         </span>
                       </div>
                       
@@ -248,22 +378,21 @@ export default function OrdersPage() {
                         }}
                         style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
                       >
-                        📄 ייצא ל-PDF / הדפס
+                        📄 ייצא
                       </button>
                     </div>
                   )}
+
+                  <div style={{ width: '120px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      {order.items?.length || 0} פר' |{' '}
+                      <strong style={{ color: 'var(--accent-light)', fontSize: '14px' }}>
+                        {order.items?.reduce((s: number, i: any) => s + i.units, 0) || 0}
+                      </strong> יח'
+                    </span>
+                    <span style={{ color: 'var(--text-muted)' }}>{expanded === order.id ? '▲' : '▼'}</span>
+                  </div>
                 </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {order.items?.length || 0} פריטים |{' '}
-                    <strong style={{ color: 'var(--accent-light)' }}>
-                      {order.items?.reduce((s: number, i: any) => s + i.units, 0) || 0}
-                    </strong> יח'
-                  </span>
-                  <span style={{ color: 'var(--text-muted)' }}>{expanded === order.id ? '▲' : '▼'}</span>
-                </div>
-              </div>
 
               {expanded === order.id && (
                 <div style={{ borderTop: '1px solid var(--border)', padding: '14px 18px', background: 'var(--bg-panel)' }}>
@@ -372,6 +501,7 @@ export default function OrdersPage() {
               )}
             </div>
           ))}
+          </div>
         </div>
       )}
     </div>
