@@ -136,6 +136,7 @@ export default function NewOrderPage() {
   const [bloomFilter, setBloomFilter] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'quality' | 'bloom' | 'name'>('quality');
   const [sortDesc, setSortDesc] = useState<boolean>(false);
+  const [expandedItemCodes, setExpandedItemCodes] = useState<Set<string>>(new Set());
   const [storeOpen, setStoreOpen] = useState(true);
 
   const handleSort = (column: 'quality' | 'bloom' | 'name') => {
@@ -300,6 +301,27 @@ export default function NewOrderPage() {
       return sortDesc ? -cmp : cmp;
     });
   }, [inStockInventory, search, qualityFilter, modelFilter, potSizeFilter, categoryFilter, bloomFilter, sortBy, sortDesc]);
+
+  const groupedItems = useMemo(() => {
+    const groups = new Map<string, InventoryItem[]>();
+    for (const item of filteredItems) {
+      const existing = groups.get(item.itemCode) || [];
+      groups.set(item.itemCode, [...existing, item]);
+    }
+    return Array.from(groups.entries());
+  }, [filteredItems]);
+
+  const toggleItemCode = (itemCode: string) => {
+    setExpandedItemCodes(prev => {
+      const next = new Set(prev);
+      if (next.has(itemCode)) {
+        next.delete(itemCode);
+      } else {
+        next.add(itemCode);
+      }
+      return next;
+    });
+  };
 
   const categories = useMemo(() => {
     const relevant = inStockInventory.filter(item => {
@@ -716,103 +738,189 @@ export default function NewOrderPage() {
                <div style={{ width: '110px', flexShrink: 0, textAlign: 'center' }}>כמות להזמנה</div>
             </div>
 
-            {filteredItems.map(item => {
-              const cartItem = cart.find(c => c.item.id === item.id);
-              const packagesInCart = cartItem ? cartItem.packages : 0;
-              const availablePackages = Math.floor(item.quantity / item.packageSize);
-              const isOutOfStock = availablePackages <= 0;
+            {groupedItems.map(([itemCode, items]) => {
+              const firstItem = items[0];
+              const isExpanded = expandedItemCodes.has(itemCode);
+              const totalAvailablePackages = items.reduce((sum, item) => sum + Math.floor(item.quantity / item.packageSize), 0);
+              const totalInCart = items.reduce((sum, item) => {
+                const cartItem = cart.find(c => c.item.id === item.id);
+                return sum + (cartItem ? cartItem.packages : 0);
+              }, 0);
 
               return (
-                <div key={item.id} className="card" style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  {/* Image */}
-                  <div style={{ width: '48px', height: '48px', borderRadius: '6px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                    <img 
-                      src={`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`} 
-                      alt={item.itemName} 
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} 
-                      onClick={() => setZoomedImage(`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`)}
-                      onError={(e) => { e.currentTarget.style.display = 'none'; if(e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'; }} 
-                    />
-                    <div style={{ width: '100%', height: '100%', display: 'none', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🌱</div>
-                  </div>
-
-                  {/* Item Name & Model */}
-                  <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
-                    <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)' }}>
-                      {item.itemName}
+                <div key={itemCode} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {/* Summary Row */}
+                  <div
+                    className="card"
+                    onClick={() => toggleItemCode(itemCode)}
+                    style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', userSelect: 'none', borderRight: isExpanded ? '3px solid var(--accent-light)' : '3px solid transparent', transition: 'border-color 0.2s' }}
+                  >
+                    {/* Expand Arrow */}
+                    <div style={{ width: '20px', flexShrink: 0, fontSize: '13px', color: 'var(--text-muted)', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                      ▶
                     </div>
-                    <div>
-                      <span className="badge" style={{ background: '#000', color: '#fff', fontSize: '15px', padding: '4px 10px', borderRadius: '12px' }}>
-                        {item.modelName}
-                      </span>
+
+                    {/* Image */}
+                    <div style={{ width: '48px', height: '48px', borderRadius: '6px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                      <img
+                        src={`/api/gallery/resolve?itemCode=${firstItem.itemCode}&modelCode=${firstItem.modelCode}`}
+                        alt={firstItem.itemName}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onClick={e => { e.stopPropagation(); setZoomedImage(`/api/gallery/resolve?itemCode=${firstItem.itemCode}&modelCode=${firstItem.modelCode}`); }}
+                        onError={(e) => { e.currentTarget.style.display = 'none'; if(e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'; }}
+                      />
+                      <div style={{ width: '100%', height: '100%', display: 'none', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🌱</div>
                     </div>
-                  </div>
-                    
-                  {/* Quality */}
-                  <div style={{ width: '80px', flexShrink: 0, fontSize: '15px', fontWeight: 800, color: '#000' }}>
-                    {item.quality}
-                  </div>
 
-                  <div style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
-
-                  {/* Bloom */}
-                  <div style={{ width: '70px', flexShrink: 0, fontSize: '15px', fontWeight: 800, color: '#000' }}>
-                    {item.bloomPct}%
-                  </div>
-
-                  <div style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
-
-                  {/* Packaging & Pot Size */}
-                  <div style={{ width: '100px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    <div>אריזה: <strong>{item.packageSize}</strong> יח'</div>
-                    {item.potSize && <div>{formatPotSize(item.potSize)}</div>}
-                  </div>
-
-                  {/* Stock */}
-                  {role !== 'customer' && (
-                    <div style={{ textAlign: 'center', width: '90px', flexShrink: 0 }}>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>זמין</div>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: (availablePackages - packagesInCart) <= 0 ? 'var(--red)' : 'var(--green)' }}>
-                        {Math.max(0, availablePackages - packagesInCart)}
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '6px', fontWeight: 'normal' }}>
-                          ({Math.max(0, availablePackages - packagesInCart) * item.packageSize} יח')
-                        </span>
+                    {/* Item Name */}
+                    <div style={{ flex: 1, minWidth: '150px' }}>
+                      <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)' }}>{firstItem.itemName}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {items.length} {items.length === 1 ? 'קומבינציה' : 'קומבינציות'}
                       </div>
                     </div>
-                  )}
 
-                  {/* Actions */}
-                  <div style={{ width: '110px', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-base)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                      <button 
-                        onClick={() => updateCart(item, -1)}
-                        style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: packagesInCart > 0 ? 'var(--red)' : 'var(--text-muted)', fontSize: '18px', fontWeight: 800 }}
-                        disabled={packagesInCart === 0}
-                      >-</button>
-                      <input 
-                        type="text" 
-                        inputMode="numeric"
-                        value={packagesInCart || ''} 
-                        onChange={e => {
-                          let val = parseInt(e.target.value);
-                          if (isNaN(val) || val < 0) val = 0;
-                          updateCart(item, 0, val);
-                        }}
-                        style={{ width: '40px', textAlign: 'center', fontWeight: 800, fontSize: '15px', background: 'transparent', border: 'none', outline: 'none', color: 'inherit' }}
-                        placeholder="0"
-                      />
-                      <button 
-                        onClick={() => updateCart(item, 1)}
-                        style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: isOutOfStock || packagesInCart >= availablePackages ? 'var(--text-muted)' : 'var(--green)', fontSize: '18px', fontWeight: 800 }}
-                        disabled={isOutOfStock || packagesInCart >= availablePackages}
-                      >+</button>
+                    {/* Spacer columns to align with header */}
+                    <div style={{ width: '80px', flexShrink: 0 }}></div>
+                    <div style={{ width: '1px', flexShrink: 0 }}></div>
+                    {/* Bloom values summary */}
+                    <div style={{ width: '70px', flexShrink: 0, fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      {Array.from(new Set(items.map(i => i.bloomPct)))
+                        .sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0))
+                        .map(b => `${b}%`)
+                        .join(' / ')}
+                    </div>
+                    <div style={{ width: '1px', flexShrink: 0 }}></div>
+                    <div style={{ width: '100px', flexShrink: 0 }}></div>
+
+                    {/* Total Stock */}
+                    {role !== 'customer' && (
+                      <div style={{ textAlign: 'center', width: '90px', flexShrink: 0 }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>סה"כ זמין</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: (totalAvailablePackages - totalInCart) <= 0 ? 'var(--red)' : 'var(--green)' }}>
+                          {Math.max(0, totalAvailablePackages - totalInCart)}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Total in Cart */}
+                    <div style={{ width: '110px', flexShrink: 0, textAlign: 'center' }}>
+                      {totalInCart > 0 && (
+                        <span style={{ background: 'var(--accent-light)', color: '#fff', borderRadius: '12px', padding: '3px 10px', fontSize: '13px', fontWeight: 700 }}>
+                          {totalInCart} בעגלה
+                        </span>
+                      )}
                     </div>
                   </div>
+
+                  {/* Detail Rows (expanded) */}
+                  {isExpanded && [...items].sort((a, b) => {
+                    const modelCmp = a.modelName.localeCompare(b.modelName);
+                    if (modelCmp !== 0) return modelCmp;
+                    return (parseFloat(b.bloomPct) || 0) - (parseFloat(a.bloomPct) || 0);
+                  }).map(item => {
+                    const cartItem = cart.find(c => c.item.id === item.id);
+                    const packagesInCart = cartItem ? cartItem.packages : 0;
+                    const availablePackages = Math.floor(item.quantity / item.packageSize);
+                    const isOutOfStock = availablePackages <= 0;
+
+                    return (
+                      <div key={item.id} className="card" style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px', marginRight: '28px', background: 'var(--bg-panel)', borderRight: '2px solid var(--border)' }}>
+                        {/* Indent spacer */}
+                        <div style={{ width: '20px', flexShrink: 0 }}></div>
+
+                        {/* Image */}
+                        <div style={{ width: '48px', height: '48px', borderRadius: '6px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                          <img
+                            src={`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`}
+                            alt={item.itemName}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                            onClick={() => setZoomedImage(`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`)}
+                            onError={(e) => { e.currentTarget.style.display = 'none'; if(e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'; }}
+                          />
+                          <div style={{ width: '100%', height: '100%', display: 'none', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🌱</div>
+                        </div>
+
+                        {/* Item Name & Model */}
+                        <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+                          <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)' }}>
+                            {item.itemName}
+                          </div>
+                          <div>
+                            <span className="badge" style={{ background: '#000', color: '#fff', fontSize: '15px', padding: '4px 10px', borderRadius: '12px' }}>
+                              {item.modelName}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Quality */}
+                        <div style={{ width: '80px', flexShrink: 0, fontSize: '15px', fontWeight: 800, color: '#000' }}>
+                          {item.quality}
+                        </div>
+
+                        <div style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
+
+                        {/* Bloom */}
+                        <div style={{ width: '70px', flexShrink: 0, fontSize: '15px', fontWeight: 800, color: '#000' }}>
+                          {item.bloomPct}%
+                        </div>
+
+                        <div style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
+
+                        {/* Packaging & Pot Size */}
+                        <div style={{ width: '100px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                          <div>אריזה: <strong>{item.packageSize}</strong> יח'</div>
+                          {item.potSize && <div>{formatPotSize(item.potSize)}</div>}
+                        </div>
+
+                        {/* Stock */}
+                        {role !== 'customer' && (
+                          <div style={{ textAlign: 'center', width: '90px', flexShrink: 0 }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>זמין</div>
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: (availablePackages - packagesInCart) <= 0 ? 'var(--red)' : 'var(--green)' }}>
+                              {Math.max(0, availablePackages - packagesInCart)}
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '6px', fontWeight: 'normal' }}>
+                                ({Math.max(0, availablePackages - packagesInCart) * item.packageSize} יח')
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        <div style={{ width: '110px', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-base)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                            <button
+                              onClick={() => updateCart(item, -1)}
+                              style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: packagesInCart > 0 ? 'var(--red)' : 'var(--text-muted)', fontSize: '18px', fontWeight: 800 }}
+                              disabled={packagesInCart === 0}
+                            >-</button>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={packagesInCart || ''}
+                              onChange={e => {
+                                let val = parseInt(e.target.value);
+                                if (isNaN(val) || val < 0) val = 0;
+                                updateCart(item, 0, val);
+                              }}
+                              style={{ width: '40px', textAlign: 'center', fontWeight: 800, fontSize: '15px', background: 'transparent', border: 'none', outline: 'none', color: 'inherit' }}
+                              placeholder="0"
+                            />
+                            <button
+                              onClick={() => updateCart(item, 1)}
+                              style={{ background: 'none', border: 'none', padding: '8px 12px', cursor: 'pointer', color: isOutOfStock || packagesInCart >= availablePackages ? 'var(--text-muted)' : 'var(--green)', fontSize: '18px', fontWeight: 800 }}
+                              disabled={isOutOfStock || packagesInCart >= availablePackages}
+                            >+</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
-            
-            {filteredItems.length === 0 && (
+
+            {groupedItems.length === 0 && (
               <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                 לא נמצאו פריטים במלאי התואמים לסינון.
               </div>
