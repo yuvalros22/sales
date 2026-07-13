@@ -417,62 +417,67 @@ export default function OrdersPage() {
                       </span>
                     )}
                     
-                    {/* Inline edit cart number */}
-                    {(role === 'admin' || role === 'agent') && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: 'auto' }}>
-                        {editingCartId === order.id ? (
-                          <>
-                            <input 
-                              type="text" 
-                              className="input" 
-                              style={{ width: '100px', padding: '4px 8px', fontSize: '12px', minHeight: 'auto' }} 
-                              value={editCartNumber} 
-                              onChange={e => setEditCartNumber(e.target.value)} 
-                              placeholder="מס' עגלה" 
-                            />
-                            <button 
-                              className="btn-primary" 
-                              style={{ padding: '4px 8px', fontSize: '11px', minHeight: 'auto' }}
-                              onClick={() => saveCartNumber(order.id)}
-                            >
-                              שמור
-                            </button>
-                            <button 
-                              className="btn-secondary" 
-                              style={{ padding: '4px 8px', fontSize: '11px', minHeight: 'auto' }}
-                              onClick={() => setEditingCartId(null)}
-                            >
-                              ביטול
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>עגלה: {order.cartNumber || '---'}</span>
-                            <button 
-                              style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--accent-light)', cursor: 'pointer', fontSize: '11px', padding: '4px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
-                              onClick={() => {
-                                setEditingCartId(order.id);
-                                setEditCartNumber(order.cartNumber || '');
-                              }}
-                            >
-                              ✏️ ערוך
-                            </button>
-                          </>
-                        )}
-                        {order.isEntered ? (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            לא ניתן למחוק - כבר הוקלדה
-                          </span>
-                        ) : (
-                          <button 
-                            style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--red)', cursor: 'pointer', fontSize: '11px', padding: '4px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
-                            onClick={() => deleteOrder(order.id)}
-                          >
-                            🗑️ מחק
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    {/* Inline actions block */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginRight: 'auto', flexWrap: 'wrap' }}>
+                      {/* Inline edit cart number - Admin/Agent only */}
+                      {(role === 'admin' || role === 'agent') && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {editingCartId === order.id ? (
+                            <>
+                              <input 
+                                type="text" 
+                                className="input" 
+                                style={{ width: '100px', padding: '4px 8px', fontSize: '12px', minHeight: 'auto' }} 
+                                value={editCartNumber} 
+                                onChange={e => setEditCartNumber(e.target.value)} 
+                                placeholder="מס' עגלה" 
+                              />
+                              <button 
+                                className="btn-primary" 
+                                style={{ padding: '4px 8px', fontSize: '11px', minHeight: 'auto' }}
+                                onClick={() => saveCartNumber(order.id)}
+                              >
+                                שמור
+                              </button>
+                              <button 
+                                className="btn-secondary" 
+                                style={{ padding: '4px 8px', fontSize: '11px', minHeight: 'auto' }}
+                                onClick={() => setEditingCartId(null)}
+                              >
+                                ביטול
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>עגלה: {order.cartNumber || '---'}</span>
+                              <button 
+                                style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--accent-light)', cursor: 'pointer', fontSize: '11px', padding: '4px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
+                                onClick={() => {
+                                  setEditingCartId(order.id);
+                                  setEditCartNumber(order.cartNumber || '');
+                                }}
+                              >
+                                ✏️ ערוך
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Cancel Order Button - Available to any user (including customers) if !isEntered */}
+                      {order.isEntered ? (
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          לא ניתן לבטל - כבר הוקלדה
+                        </span>
+                      ) : (
+                        <button 
+                          style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--red)', cursor: 'pointer', fontSize: '11px', padding: '4px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}
+                          onClick={() => deleteOrder(order.id)}
+                        >
+                          🗑️ בטל הזמנה שלמה
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="table-responsive">
@@ -488,6 +493,7 @@ export default function OrdersPage() {
                           <th>גודל אריזה</th>
                           <th>אריזות</th>
                           <th>יחידות</th>
+                          {!order.isEntered && <th style={{ textAlign: 'center' }}>פעולות</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -502,6 +508,17 @@ export default function OrdersPage() {
                             <td style={{ color: 'var(--text-muted)' }}>{item.packageSize}</td>
                             <td><span className="badge badge-blue">{item.packages}</span></td>
                             <td style={{ color: 'var(--accent-light)', fontWeight: 700 }}>{item.units}</td>
+                            {!order.isEntered && (
+                              <td style={{ textAlign: 'center' }}>
+                                <button
+                                  style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--red)', cursor: 'pointer', fontSize: '11px', padding: '4px 10px', borderRadius: '6px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  onClick={() => deleteOrderItem(order.id, item.id)}
+                                  title="בטל שורה זו"
+                                >
+                                  ✕ בטל שורה
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>

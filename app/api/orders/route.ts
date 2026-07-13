@@ -188,10 +188,12 @@ export async function DELETE(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   const role = (session.user as any)?.role;
-  if (!['admin', 'agent'].includes(role)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const userId = (session as any)?.userId;
 
   const url = new URL(req.url);
   const id = url.searchParams.get('id');
+  const itemId = url.searchParams.get('itemId');
+  
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
   const order = await prisma.order.findUnique({
@@ -201,31 +203,63 @@ export async function DELETE(req: NextRequest) {
 
   if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  // Only allow customer to delete their own order
+  if (role === 'customer' && order.userId !== userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   if (order.isEntered) {
     return NextResponse.json({ error: 'לא ניתן למחוק הזמנה שכבר סומנה כ"הוקלדה".' }, { status: 400 });
   }
 
   const operations: any[] = [];
 
-  // Restore inventory
-  for (const item of order.items) {
+  if (itemId) {
+    // Cancel specific line item
+    const itemToDelete = order.items.find(i => i.id === itemId);
+    if (!itemToDelete) return NextResponse.json({ error: 'Item not found in order' }, { status: 404 });
+
     const inv = await prisma.inventoryItem.findFirst({
       where: {
-        itemCode: item.itemCode,
-        modelCode: item.modelCode,
-        quality: item.quality,
-        bloomPct: item.bloomPct
+        itemCode: itemToDelete.itemCode,
+        modelCode: itemToDelete.modelCode,
+        quality: itemToDelete.quality,
+        bloomPct: itemToDelete.bloomPct
       }
     });
+
     if (inv) {
       operations.push(prisma.inventoryItem.update({
         where: { id: inv.id },
-        data: { quantity: { increment: item.units } }
+        data: { quantity: { increment: itemToDelete.units } }
       }));
     }
-  }
 
-  operations.push(prisma.order.delete({ where: { id } }));
+    if (order.items.length === 1) {
+      operations.push(prisma.order.delete({ where: { id } }));
+    } else {
+      operations.push(prisma.orderItem.delete({ where: { id: itemId } }));
+    }
+  } else {
+    // Cancel entire order
+    for (const item of order.items) {
+      const inv = await prisma.inventoryItem.findFirst({
+        where: {
+          itemCode: item.itemCode,
+          modelCode: item.modelCode,
+          quality: item.quality,
+          bloomPct: item.bloomPct
+        }
+      });
+      if (inv) {
+        operations.push(prisma.inventoryItem.update({
+          where: { id: inv.id },
+          data: { quantity: { increment: item.units } }
+        }));
+      }
+    }
+    operations.push(prisma.order.delete({ where: { id } }));
+  }
 
   await prisma.$transaction(operations);
 
