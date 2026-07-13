@@ -106,10 +106,18 @@ export default function OrdersPage() {
   }
 
   async function deleteOrder(id: string) {
-    if (!window.confirm('האם אתה בטוח שברצונך למחוק הזמנה זו? כל היחידות יוחזרו למלאי.')) return;
+    if (!window.confirm('האם אתה בטוח שברצונך לבטל הזמנה זו? כל היחידות יוחזרו למלאי.')) return;
     const res = await fetch(`/api/orders?id=${id}`, { method: 'DELETE' });
     const data = await res.json();
-    if (!res.ok) alert(data.error || 'שגיאה במחיקה');
+    if (!res.ok) alert(data.error || 'שגיאה בביטול ההזמנה');
+    fetchOrders();
+  }
+
+  async function deleteOrderItem(orderId: string, itemId: string) {
+    if (!window.confirm('האם אתה בטוח שברצונך לבטל שורה זו מההזמנה? היחידות יוחזרו למלאי.')) return;
+    const res = await fetch(`/api/orders?id=${orderId}&itemId=${itemId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) alert(data.error || 'שגיאה בביטול השורה');
     fetchOrders();
   }
 
@@ -464,18 +472,20 @@ export default function OrdersPage() {
                         </div>
                       )}
 
-                      {/* Cancel Order Button - Available to any user (including customers) if !isEntered */}
-                      {order.isEntered ? (
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          לא ניתן לבטל - כבר הוקלדה
-                        </span>
-                      ) : (
-                        <button 
-                          style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--red)', cursor: 'pointer', fontSize: '11px', padding: '4px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}
-                          onClick={() => deleteOrder(order.id)}
-                        >
-                          🗑️ בטל הזמנה שלמה
-                        </button>
+                      {/* Cancel Order Button - Admin/Agent only and only if !isEntered */}
+                      {role !== 'customer' && (
+                        order.isEntered ? (
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            לא ניתן לבטל - כבר הוקלדה
+                          </span>
+                        ) : (
+                          <button 
+                            style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--red)', cursor: 'pointer', fontSize: '11px', padding: '4px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}
+                            onClick={() => deleteOrder(order.id)}
+                          >
+                            🗑️ בטל הזמנה שלמה
+                          </button>
+                        )
                       )}
                     </div>
                   </div>
@@ -493,7 +503,7 @@ export default function OrdersPage() {
                           <th>גודל אריזה</th>
                           <th>אריזות</th>
                           <th>יחידות</th>
-                          {!order.isEntered && <th style={{ textAlign: 'center' }}>פעולות</th>}
+                          {role !== 'customer' && !order.isEntered && <th style={{ textAlign: 'center' }}>פעולות</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -508,7 +518,7 @@ export default function OrdersPage() {
                             <td style={{ color: 'var(--text-muted)' }}>{item.packageSize}</td>
                             <td><span className="badge badge-blue">{item.packages}</span></td>
                             <td style={{ color: 'var(--accent-light)', fontWeight: 700 }}>{item.units}</td>
-                            {!order.isEntered && (
+                            {role !== 'customer' && !order.isEntered && (
                               <td style={{ textAlign: 'center' }}>
                                 <button
                                   style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--red)', cursor: 'pointer', fontSize: '11px', padding: '4px 10px', borderRadius: '6px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}

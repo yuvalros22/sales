@@ -203,9 +203,9 @@ export async function DELETE(req: NextRequest) {
 
   if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  // Only allow customer to delete their own order
-  if (role === 'customer' && order.userId !== userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Cancel/delete orders is restricted to admin and agent roles only
+  if (!['admin', 'agent'].includes(role)) {
+    return NextResponse.json({ error: 'רק מנהל או סוכן מורשים לבטל הזמנות.' }, { status: 403 });
   }
 
   if (order.isEntered) {
