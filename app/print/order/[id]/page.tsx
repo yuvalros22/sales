@@ -39,8 +39,24 @@ export default async function PrintOrderPage({ params }: { params: { id: string 
           <h2 style={{ margin: '0 0 5px 0', fontSize: '20px' }}>{order.customerName || order.user.name}</h2>
           <div style={{ color: '#555' }}>עגלה: {order.cartNumber || '---'}</div>
           {order.lineNumber && <div style={{ color: '#555' }}>שורה: {order.lineNumber}</div>}
+          {order.prodOrderNumber && <div style={{ color: '#555' }}>הזמנת יצור: {order.prodOrderNumber}</div>}
+          {order.prodLineNumber && <div style={{ color: '#555' }}>שורת ייצור: {order.prodLineNumber}</div>}
         </div>
       </div>
+
+      {order.notes && (
+        <div style={{ 
+          background: '#f4f4f5', 
+          padding: '12px 16px', 
+          borderRadius: '8px', 
+          marginBottom: '20px', 
+          borderRight: '4px solid #22c55e', 
+          fontSize: '14px',
+          color: '#333'
+        }}>
+          <strong>הערות להזמנה:</strong> {order.notes}
+        </div>
+      )}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
         <thead>

@@ -43,6 +43,7 @@ export async function POST(req: Request) {
         'מספר שורה': order.lineNumber || '',
         'הזמנת יצור': order.prodOrderNumber || '',
         'שורת יצור': order.prodLineNumber || '',
+        'הערות להזמנה': order.notes || '',
         'קוד פריט': item.itemCode,
         'שם פריט': item.itemName,
         'קוד דגם': item.modelCode,

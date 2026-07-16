@@ -230,6 +230,14 @@ export default function NewOrderPage() {
       fetch('/api/customers').then(r => r.json())
     ]).then(([invData, configData, custData]) => {
       setInventory(invData);
+      
+      // Initialize qualityFilter with all unique qualities except 'יצא ממכירה 8'
+      if (invData && Array.isArray(invData)) {
+        const uniqueQualities = Array.from(new Set(invData.map((i: any) => i.quality)))
+          .filter((q: any) => q && q !== 'יצא ממכירה 8');
+        setQualityFilter(uniqueQualities);
+      }
+
       if (configData && typeof configData.storeOpen === 'boolean') {
         setStoreOpen(configData.storeOpen);
       }
@@ -701,7 +709,7 @@ export default function NewOrderPage() {
               <MultiSelectDropdown 
                 values={qualityFilter} 
                 onChange={setQualityFilter} 
-                options={qualities.map(q => ({ label: `איכות ${q}`, value: q }))} 
+                options={qualities.map(q => ({ label: q, value: q }))} 
                 placeholder="כל האיכויות" 
               />
             </div>

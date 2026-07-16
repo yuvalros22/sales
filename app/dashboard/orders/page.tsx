@@ -490,6 +490,21 @@ export default function OrdersPage() {
                     </div>
                   </div>
 
+                  {order.notes && (
+                    <div style={{ 
+                      background: 'rgba(255, 255, 255, 0.03)', 
+                      borderRight: '4px solid var(--accent-light)', 
+                      padding: '10px 14px', 
+                      borderRadius: '4px', 
+                      marginBottom: '14px',
+                      fontSize: '13px',
+                      color: 'var(--text-secondary)'
+                    }}>
+                      <strong style={{ color: 'var(--text-primary)', marginLeft: '6px' }}>הערות להזמנה:</strong>
+                      {order.notes}
+                    </div>
+                  )}
+
                   <div className="table-responsive">
                     <table className="data-table">
                       <thead>
