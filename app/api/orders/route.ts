@@ -53,6 +53,23 @@ export async function POST(req: NextRequest) {
   const userId = (session as any)?.userId;
   const { customerName, customerCode, agentName, cartNumber, orderNumber, lineNumber, prodOrderNumber, prodLineNumber, items, deliveryDate, notes } = await req.json();
   
+  // Validate cart number uniqueness per customer on delivery date
+  if (cartNumber && cartNumber.trim() !== '' && deliveryDate) {
+    const targetDate = new Date(deliveryDate);
+    const existingCartOrder = await prisma.order.findFirst({
+      where: {
+        cartNumber: cartNumber.trim(),
+        deliveryDate: targetDate,
+      }
+    });
+
+    if (existingCartOrder && existingCartOrder.customerName !== customerName) {
+      return NextResponse.json({ 
+        error: `עגלה מספר ${cartNumber} כבר משויכת ללקוח "${existingCartOrder.customerName}" בתאריך זה` 
+      }, { status: 400 });
+    }
+  }
+
   // Pre-fetch all relevant inventory items in ONE query
   const inventoryItems = await prisma.inventoryItem.findMany({
     where: {
