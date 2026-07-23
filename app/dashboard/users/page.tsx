@@ -16,11 +16,27 @@ export default function UsersPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   useEffect(() => {
-    if (role && role !== 'admin') router.push('/dashboard');
-    else load();
+    if (role && role !== 'admin') {
+      router.push('/dashboard');
+    } else {
+      load();
+      fetchCustomers();
+    }
   }, [role]);
+
+  async function fetchCustomers() {
+    try {
+      const res = await fetch('/api/customers');
+      if (res.ok) setCustomers(await res.json());
+    } catch (err) {
+      console.error('Error fetching customers:', err);
+    }
+  }
 
   async function load() {
     const res = await fetch('/api/users');
@@ -56,12 +72,16 @@ export default function UsersPage() {
   function openEdit(u: any) {
     setEditingUserId(u.id);
     setForm({ username: u.username, password: '', name: u.name, role: u.role });
+    setCustomerDropdownOpen(false);
+    setHighlightedIndex(-1);
     setShowAdd(true);
   }
 
   function openAdd() {
     setEditingUserId(null);
     setForm({ username: '', password: '', name: '', role: 'customer' });
+    setCustomerDropdownOpen(false);
+    setHighlightedIndex(-1);
     setShowAdd(true);
   }
 
@@ -104,6 +124,38 @@ export default function UsersPage() {
       if (valA > valB) return direction === 'asc' ? 1 : -1;
       return 0;
     });
+
+  const filteredCustomers = customers.filter(c => {
+    const q = form.name.toLowerCase();
+    return c.customerName.toLowerCase().includes(q) || 
+           (c.customerCode && c.customerCode.toLowerCase().includes(q));
+  });
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!customerDropdownOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        setCustomerDropdownOpen(true);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => Math.min(prev + 1, filteredCustomers.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter') {
+      if (highlightedIndex >= 0 && highlightedIndex < filteredCustomers.length) {
+        e.preventDefault();
+        setForm({ ...form, name: filteredCustomers[highlightedIndex].customerName });
+        setCustomerDropdownOpen(false);
+        setHighlightedIndex(-1);
+      }
+    } else if (e.key === 'Escape') {
+      setCustomerDropdownOpen(false);
+    }
+  }
 
   return (
     <div>
@@ -161,9 +213,71 @@ export default function UsersPage() {
               {editingUserId ? 'עריכת משתמש' : 'הוספת משתמש חדש'}
             </div>
             <div className="form-grid">
-              <div className="form-group">
+              <div className="form-group" style={{ position: 'relative' }}>
                 <label className="form-label">שם מלא</label>
-                <input className="input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="ישראל ישראלי" />
+                <input 
+                  className="input" 
+                  value={form.name} 
+                  onChange={e => {
+                    setForm({ ...form, name: e.target.value });
+                    setCustomerDropdownOpen(true);
+                    setHighlightedIndex(-1);
+                  }}
+                  onFocus={() => {
+                    setCustomerDropdownOpen(true);
+                    setHighlightedIndex(-1);
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setCustomerDropdownOpen(false), 200);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="ישראל ישראלי" 
+                  autoComplete="off"
+                />
+                {customerDropdownOpen && filteredCustomers.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)',
+                    maxHeight: '180px',
+                    overflowY: 'auto',
+                    zIndex: 50,
+                    marginTop: '4px',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    {filteredCustomers.map((c, idx) => (
+                      <div 
+                        key={c.customerCode || idx}
+                        style={{
+                          padding: '10px 14px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid var(--border)',
+                          fontWeight: 600,
+                          fontSize: '14px',
+                          background: highlightedIndex === idx ? 'rgba(0,0,0,0.05)' : 'transparent',
+                          color: 'var(--text-primary)',
+                          textAlign: 'right'
+                        }}
+                        onMouseDown={() => {
+                          setForm({ ...form, name: c.customerName });
+                          setCustomerDropdownOpen(false);
+                          setHighlightedIndex(-1);
+                        }}
+                        onMouseEnter={() => setHighlightedIndex(idx)}
+                        onMouseLeave={() => setHighlightedIndex(-1)}
+                      >
+                        {c.customerName}
+                        {c.customerCode && <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '8px' }}>({c.customerCode})</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">שם משתמש</label>
