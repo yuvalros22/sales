@@ -725,10 +725,10 @@ export default function NewOrderPage() {
         </div>
 
         {/* Catalog List */}
-        <div style={{ overflowX: 'auto', paddingBottom: '16px', margin: '0 -16px', padding: '0 16px' }}>
-          <div style={{ minWidth: '700px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="catalog-list-scroll" style={{ overflowX: 'auto', paddingBottom: '16px', margin: '0 -16px', padding: '0 16px' }}>
+          <div className="catalog-list-container" style={{ minWidth: '700px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {/* Table Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '0 12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', userSelect: 'none' }}>
+            <div className="catalog-header" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '0 12px', fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', userSelect: 'none' }}>
                <div style={{ width: '48px', flexShrink: 0 }}></div>
                <div style={{ flex: 1, minWidth: '150px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('name')}>
                  פריט ודגם {sortBy === 'name' ? (sortDesc ? '▲' : '▼') : <span style={{opacity: 0.3}}>▼</span>}
@@ -759,7 +759,7 @@ export default function NewOrderPage() {
                 <div key={itemCode} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {/* Summary Row */}
                   <div
-                    className="card"
+                    className="card summary-row"
                     onClick={() => toggleItemCode(itemCode)}
                     style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', userSelect: 'none', borderRight: isExpanded ? '3px solid var(--accent-light)' : '3px solid transparent', transition: 'border-color 0.2s' }}
                   >
@@ -788,36 +788,38 @@ export default function NewOrderPage() {
                       </div>
                     </div>
 
-                    {/* Spacer columns to align with header */}
-                    <div style={{ width: '80px', flexShrink: 0 }}></div>
-                    <div style={{ width: '1px', flexShrink: 0 }}></div>
-                    {/* Bloom values summary */}
-                    <div style={{ width: '70px', flexShrink: 0, fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                      {Array.from(new Set(items.map(i => i.bloomPct)))
-                        .sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0))
-                        .map(b => `${b}%`)
-                        .join(' / ')}
-                    </div>
-                    <div style={{ width: '1px', flexShrink: 0 }}></div>
-                    <div style={{ width: '100px', flexShrink: 0 }}></div>
-
-                    {/* Total Stock */}
-                    {role !== 'customer' && (
-                      <div style={{ textAlign: 'center', width: '90px', flexShrink: 0 }}>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>סה"כ זמין</div>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: (totalAvailablePackages - totalInCart) <= 0 ? 'var(--red)' : 'var(--green)' }}>
-                          {Math.max(0, totalAvailablePackages - totalInCart)}
-                        </div>
+                    <div className="summary-meta-container">
+                      {/* Spacer columns to align with header */}
+                      <div className="summary-spacer" style={{ width: '80px', flexShrink: 0 }}></div>
+                      <div className="summary-spacer" style={{ width: '1px', flexShrink: 0 }}></div>
+                      {/* Bloom values summary */}
+                      <div className="summary-bloom" style={{ width: '70px', flexShrink: 0, fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        {Array.from(new Set(items.map(i => i.bloomPct)))
+                          .sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0))
+                          .map(b => `${b}%`)
+                          .join(' / ')}
                       </div>
-                    )}
+                      <div className="summary-spacer" style={{ width: '1px', flexShrink: 0 }}></div>
+                      <div className="summary-spacer" style={{ width: '100px', flexShrink: 0 }}></div>
 
-                    {/* Total in Cart */}
-                    <div style={{ width: '110px', flexShrink: 0, textAlign: 'center' }}>
-                      {totalInCart > 0 && (
-                        <span style={{ background: 'var(--accent-light)', color: '#fff', borderRadius: '12px', padding: '3px 10px', fontSize: '13px', fontWeight: 700 }}>
-                          {totalInCart} בעגלה
-                        </span>
+                      {/* Total Stock */}
+                      {role !== 'customer' && (
+                        <div className="summary-stock" style={{ textAlign: 'center', width: '90px', flexShrink: 0 }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>סה"כ זמין</div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: (totalAvailablePackages - totalInCart) <= 0 ? 'var(--red)' : 'var(--green)' }}>
+                            {Math.max(0, totalAvailablePackages - totalInCart)}
+                          </div>
+                        </div>
                       )}
+
+                      {/* Total in Cart */}
+                      <div className="summary-cart" style={{ width: '110px', flexShrink: 0, textAlign: 'center' }}>
+                        {totalInCart > 0 && (
+                          <span style={{ background: 'var(--accent-light)', color: '#fff', borderRadius: '12px', padding: '3px 10px', fontSize: '13px', fontWeight: 700 }}>
+                            {totalInCart} בעגלה
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -833,12 +835,12 @@ export default function NewOrderPage() {
                     const isOutOfStock = availablePackages <= 0;
 
                     return (
-                      <div key={item.id} className="card" style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px', marginRight: '28px', background: 'var(--bg-panel)', borderRight: '2px solid var(--border)' }}>
+                      <div key={item.id} className="card detail-row" style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px', marginRight: '28px', background: 'var(--bg-panel)', borderRight: '2px solid var(--border)' }}>
                         {/* Indent spacer */}
-                        <div style={{ width: '20px', flexShrink: 0 }}></div>
+                        <div className="detail-indent" style={{ width: '20px', flexShrink: 0 }}></div>
 
                         {/* Image */}
-                        <div style={{ width: '48px', height: '48px', borderRadius: '6px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                        <div className="detail-img" style={{ width: '48px', height: '48px', borderRadius: '6px', background: 'var(--bg-panel)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
                           <img
                             src={`/api/gallery/resolve?itemCode=${item.itemCode}&modelCode=${item.modelCode}`}
                             alt={item.itemName}
@@ -850,7 +852,7 @@ export default function NewOrderPage() {
                         </div>
 
                         {/* Item Name & Model */}
-                        <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+                        <div className="detail-info" style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
                           <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)' }}>
                             {item.itemName}
                           </div>
@@ -861,41 +863,45 @@ export default function NewOrderPage() {
                           </div>
                         </div>
 
-                        {/* Quality */}
-                        <div style={{ width: '80px', flexShrink: 0, fontSize: '15px', fontWeight: 800, color: '#000' }}>
-                          {item.quality}
-                        </div>
-
-                        <div style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
-
-                        {/* Bloom */}
-                        <div style={{ width: '70px', flexShrink: 0, fontSize: '15px', fontWeight: 800, color: '#000' }}>
-                          {item.bloomPct}%
-                        </div>
-
-                        <div style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
-
-                        {/* Packaging & Pot Size */}
-                        <div style={{ width: '100px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                          <div>אריזה: <strong>{item.packageSize}</strong> יח'</div>
-                          {item.potSize && <div>{formatPotSize(item.potSize)}</div>}
-                        </div>
-
-                        {/* Stock */}
-                        {role !== 'customer' && (
-                          <div style={{ textAlign: 'center', width: '90px', flexShrink: 0 }}>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>זמין</div>
-                            <div style={{ fontSize: '14px', fontWeight: 700, color: (availablePackages - packagesInCart) <= 0 ? 'var(--red)' : 'var(--green)' }}>
-                              {Math.max(0, availablePackages - packagesInCart)}
-                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '6px', fontWeight: 'normal' }}>
-                                ({Math.max(0, availablePackages - packagesInCart) * item.packageSize} יח')
-                              </span>
-                            </div>
+                        <div className="detail-meta-container">
+                          {/* Quality */}
+                          <div className="detail-quality" style={{ width: '80px', flexShrink: 0, fontSize: '15px', fontWeight: 800, color: '#000' }}>
+                            {item.quality}
                           </div>
-                        )}
+
+                          <div className="detail-sep" style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
+
+                          {/* Bloom */}
+                          <div className="detail-bloom" style={{ width: '70px', flexShrink: 0, fontSize: '15px', fontWeight: 800, color: '#000' }}>
+                            {item.bloomPct}%
+                          </div>
+
+                          <div className="detail-sep" style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
+
+                          {/* Packaging & Pot Size */}
+                          <div className="detail-packaging" style={{ width: '100px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            <div>אריזה: <strong>{item.packageSize}</strong> יח'</div>
+                            {item.potSize && <div>{formatPotSize(item.potSize)}</div>}
+                          </div>
+
+                          <div className="detail-sep" style={{ width: '1px', height: '30px', background: 'var(--border)', flexShrink: 0 }}></div>
+
+                          {/* Stock */}
+                          {role !== 'customer' && (
+                            <div className="detail-stock" style={{ textAlign: 'center', width: '90px', flexShrink: 0 }}>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>זמין</div>
+                              <div style={{ fontSize: '14px', fontWeight: 700, color: (availablePackages - packagesInCart) <= 0 ? 'var(--red)' : 'var(--green)' }}>
+                                {Math.max(0, availablePackages - packagesInCart)}
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '6px', fontWeight: 'normal' }}>
+                                  ({Math.max(0, availablePackages - packagesInCart) * item.packageSize} יח')
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
 
                         {/* Actions */}
-                        <div style={{ width: '110px', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                        <div className="detail-actions" style={{ width: '110px', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
                           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-base)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden' }}>
                             <button
                               onClick={() => updateCart(item, -1)}
