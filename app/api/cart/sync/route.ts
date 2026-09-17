@@ -82,6 +82,9 @@ export async function POST(req: NextRequest) {
         });
         return reservation;
       }
+    }, {
+      maxWait: 10000,
+      timeout: 10000
     });
 
     return NextResponse.json({ ok: true, reservation: result });

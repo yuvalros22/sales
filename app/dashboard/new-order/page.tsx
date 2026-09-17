@@ -426,7 +426,6 @@ export default function NewOrderPage() {
         const availablePackages = Math.floor(item.quantity / item.packageSize);
         if (newPackages > availablePackages) {
           setErrorMsg(`אין מספיק מלאי עבור ${item.itemName} ${item.modelName}. זמין: ${availablePackages} אריזות`);
-          setTimeout(() => setErrorMsg(''), 3000);
           return prev;
         }
       }
@@ -444,7 +443,6 @@ export default function NewOrderPage() {
         const data = await res.json();
         if (!res.ok) {
           setErrorMsg(data.error || 'שגיאה בשמירת המלאי לעגלה');
-          setTimeout(() => setErrorMsg(''), 3000);
           // Revert on server error by re-fetching or just reverting to currentPackages
           setCart(current => {
             if (currentPackages === 0) return current.filter(c => c.item.id !== item.id);
@@ -453,7 +451,6 @@ export default function NewOrderPage() {
         }
       }).catch(e => {
         setErrorMsg('שגיאת תקשורת בשמירת מלאי');
-        setTimeout(() => setErrorMsg(''), 3000);
         setCart(current => {
           if (currentPackages === 0) return current.filter(c => c.item.id !== item.id);
           return current.map(c => c.item.id === item.id ? { ...c, packages: currentPackages } : c);
@@ -943,8 +940,38 @@ export default function NewOrderPage() {
         </div>
 
         {errorMsg && (
-          <div style={{ position: 'fixed', bottom: '20px', right: '20px', background: 'rgba(248,113,113,0.95)', border: '1px solid var(--red)', borderRadius: '8px', padding: '12px 20px', color: '#fff', fontSize: '14px', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
-            {errorMsg}
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(5px)' }}>
+            <div style={{ background: 'var(--bg-panel, #ffffff)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', maxWidth: '90%', width: '500px', border: '4px solid var(--red, #ef4444)', position: 'relative' }}>
+              <button 
+                onClick={() => setErrorMsg('')} 
+                style={{ position: 'absolute', top: '20px', right: '20px', background: 'var(--bg-base, #f3f4f6)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', fontSize: '18px', cursor: 'pointer', color: 'var(--text-primary, #000)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ✕
+              </button>
+              <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚠️</div>
+              <h2 style={{ fontSize: '28px', color: 'var(--text-primary, #000)', margin: '0 0 16px 0', fontWeight: 900, lineHeight: 1.3 }}>
+                שגיאת מערכת
+              </h2>
+              <p style={{ fontSize: '18px', color: '#ef4444', margin: '0 0 30px 0', fontWeight: 600, direction: 'rtl' }}>
+                {errorMsg}
+              </p>
+              <button
+                onClick={() => setErrorMsg('')}
+                style={{
+                  background: '#ef4444',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '12px 30px',
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
+                }}
+              >
+                הבנתי, סגור
+              </button>
+            </div>
           </div>
         )}
         {successMsg && (
