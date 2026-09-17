@@ -113,3 +113,11 @@ model CartReservation {
   
   @@unique([userId, inventoryItemId])
 }
+
+model Promotion {
+  id        String   @id @default(cuid())
+  itemCode  String
+  itemName  String
+  price     Float
+  createdAt DateTime @default(now())
+}
