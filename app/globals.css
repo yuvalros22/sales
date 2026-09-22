@@ -213,7 +213,7 @@ select.input { cursor: pointer; }
   padding: 20px 12px;
   flex-shrink: 0;
 }
-.main-content { flex: 1; padding: 24px; overflow: auto; }
+.main-content { flex: 1; padding: 24px; overflow: visible; }
 
 .sidebar-logo {
   font-size: 16px;
@@ -306,7 +306,7 @@ select.input { cursor: pointer; }
 
 .cart-container {
   position: sticky;
-  top: 20px;
+  top: 24px;
 }
 
 /* Floating Cart Button (Hidden on Desktop) */

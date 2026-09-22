@@ -17,6 +17,19 @@ export default function OrdersPage() {
   const [showStatus, setShowStatus] = useState<'all' | 'untyped'>('all');
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
 
+  // Expanded Items Sort State
+  const [itemSortBy, setItemSortBy] = useState<string>('itemName');
+  const [itemSortDesc, setItemSortDesc] = useState<boolean>(false);
+
+  function handleItemSort(column: string) {
+    if (itemSortBy === column) {
+      setItemSortDesc(!itemSortDesc);
+    } else {
+      setItemSortBy(column);
+      setItemSortDesc(false);
+    }
+  }
+
   function handleSort(column: 'createdAt' | 'customerName' | 'cartNumber' | 'agentName') {
     if (sortBy === column) {
       setSortDesc(!sortDesc);
@@ -509,43 +522,87 @@ export default function OrdersPage() {
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th>שם פריט</th>
-                          <th>קוד פריט</th>
-                          <th>שם דגם</th>
-                          <th>קוד דגם</th>
-                          <th>איכות</th>
-                          <th>פריחה</th>
-                          <th>גודל אריזה</th>
-                          <th>אריזות</th>
-                          <th>יחידות</th>
+                          <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleItemSort('itemName')}>
+                            שם פריט {itemSortBy === 'itemName' ? (itemSortDesc ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                          </th>
+                          <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleItemSort('itemCode')}>
+                            קוד פריט {itemSortBy === 'itemCode' ? (itemSortDesc ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                          </th>
+                          <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleItemSort('modelName')}>
+                            שם דגם {itemSortBy === 'modelName' ? (itemSortDesc ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                          </th>
+                          <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleItemSort('modelCode')}>
+                            קוד דגם {itemSortBy === 'modelCode' ? (itemSortDesc ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                          </th>
+                          <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleItemSort('quality')}>
+                            איכות {itemSortBy === 'quality' ? (itemSortDesc ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                          </th>
+                          <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleItemSort('bloomPct')}>
+                            פריחה {itemSortBy === 'bloomPct' ? (itemSortDesc ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                          </th>
+                          <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleItemSort('packageSize')}>
+                            גודל אריזה {itemSortBy === 'packageSize' ? (itemSortDesc ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                          </th>
+                          <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleItemSort('packages')}>
+                            אריזות {itemSortBy === 'packages' ? (itemSortDesc ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                          </th>
+                          <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleItemSort('units')}>
+                            יחידות {itemSortBy === 'units' ? (itemSortDesc ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                          </th>
                           {role !== 'customer' && !order.isEntered && <th style={{ textAlign: 'center' }}>פעולות</th>}
                         </tr>
                       </thead>
                       <tbody>
-                        {(order.items || []).map((item: any) => (
-                          <tr key={item.id}>
-                            <td style={{ fontWeight: 700 }}>{item.itemName}</td>
-                            <td style={{ color: 'var(--text-muted)' }}>{item.itemCode}</td>
-                            <td>{item.modelName}</td>
-                            <td style={{ color: 'var(--text-muted)' }}>{item.modelCode}</td>
-                            <td><span className="badge badge-purple">{item.quality}</span></td>
-                            <td>{item.bloomPct}%</td>
-                            <td style={{ color: 'var(--text-muted)' }}>{item.packageSize}</td>
-                            <td><span className="badge badge-blue">{item.packages}</span></td>
-                            <td style={{ color: 'var(--accent-light)', fontWeight: 700 }}>{item.units}</td>
-                            {role !== 'customer' && !order.isEntered && (
-                              <td style={{ textAlign: 'center' }}>
-                                <button
-                                  style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--red)', cursor: 'pointer', fontSize: '11px', padding: '4px 10px', borderRadius: '6px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                  onClick={() => deleteOrderItem(order.id, item.id)}
-                                  title="בטל שורה זו"
-                                >
-                                  ✕ בטל שורה
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        ))}
+                        {[...(order.items || [])]
+                          .sort((a, b) => {
+                            let valA = a[itemSortBy];
+                            let valB = b[itemSortBy];
+                            if (valA === undefined || valA === null) valA = '';
+                            if (valB === undefined || valB === null) valB = '';
+                            let cmp = 0;
+                            if (typeof valA === 'number' && typeof valB === 'number') {
+                              cmp = valA - valB;
+                            } else {
+                              cmp = String(valA).localeCompare(String(valB), 'he-IL', { numeric: true });
+                            }
+                            
+                            if (cmp !== 0) {
+                              return itemSortDesc ? -cmp : cmp;
+                            }
+                            
+                            // Secondary sort by itemName (always ascending)
+                            if (itemSortBy !== 'itemName') {
+                              const nameA = a.itemName || '';
+                              const nameB = b.itemName || '';
+                              return nameA.localeCompare(nameB, 'he-IL', { numeric: true });
+                            }
+                            
+                            return 0;
+                          })
+                          .map((item: any) => (
+                            <tr key={item.id}>
+                              <td style={{ fontWeight: 700 }}>{item.itemName}</td>
+                              <td style={{ color: 'var(--text-muted)' }}>{item.itemCode}</td>
+                              <td>{item.modelName}</td>
+                              <td style={{ color: 'var(--text-muted)' }}>{item.modelCode}</td>
+                              <td><span className="badge badge-purple">{item.quality}</span></td>
+                              <td>{item.bloomPct}%</td>
+                              <td style={{ color: 'var(--text-muted)' }}>{item.packageSize}</td>
+                              <td><span className="badge badge-blue">{item.packages}</span></td>
+                              <td style={{ color: 'var(--accent-light)', fontWeight: 700 }}>{item.units}</td>
+                              {role !== 'customer' && !order.isEntered && (
+                                <td style={{ textAlign: 'center' }}>
+                                  <button
+                                    style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--red)', cursor: 'pointer', fontSize: '11px', padding: '4px 10px', borderRadius: '6px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                    onClick={() => deleteOrderItem(order.id, item.id)}
+                                    title="בטל שורה זו"
+                                  >
+                                    ✕ בטל שורה
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
                       </tbody>
                     </table>
                   </div>
